@@ -697,17 +697,24 @@ async function requestGeminiImagesOnce(config: AiConfig, prompt: string, referen
     return parseGeminiImagePayload(response.data);
 }
 
+const GEMINI_MARKDOWN_IMAGE_PATTERN = /!\[[^\]]*\]\(\s*(https?:\/\/[^)\s]+)(?:\s+["'][^)]*["'])?\s*\)/gi;
+
+function extractGeminiMarkdownImageUrls(text?: string) {
+    if (!text) return [];
+    return Array.from(text.matchAll(GEMINI_MARKDOWN_IMAGE_PATTERN), (match) => match[1]);
+}
+
 function parseGeminiImagePayload(payload: GeminiPayload) {
     validateGeminiPayload(payload);
     const images =
         payload.candidates
             ?.flatMap((candidate) => candidate.content?.parts || [])
-            .map((part) => {
+            .flatMap((part) => {
                 const inlineData = part.inlineData || (part.inline_data ? { mimeType: part.inline_data.mimeType || part.inline_data.mime_type, data: part.inline_data.data } : undefined);
-                if (inlineData?.data) return `data:${inlineData.mimeType || "image/png"};base64,${inlineData.data}`;
-                return part.fileData?.fileUri || null;
+                if (inlineData?.data) return [`data:${inlineData.mimeType || "image/png"};base64,${inlineData.data}`];
+                if (part.fileData?.fileUri) return [part.fileData.fileUri];
+                return extractGeminiMarkdownImageUrls(part.text);
             })
-            .filter((value): value is string => Boolean(value))
             .map((dataUrl) => ({ id: nanoid(), dataUrl })) || [];
     if (!images.length) throw new Error(apiText("geminiNoImage"));
     return images;
