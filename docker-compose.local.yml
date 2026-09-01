@@ -27,7 +27,7 @@ services:
       retries: 6
       start_period: 15s
     volumes:
-      - canvas_files_local:/var/lib/canvas/files
+      - canvas_files:/var/lib/canvas/files
 
   postgres:
     image: postgres:17-alpine
@@ -46,4 +46,4 @@ services:
 
 volumes:
   canvas_postgres_data:
-  canvas_files_local:
+  canvas_files:
