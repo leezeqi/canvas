@@ -7,9 +7,9 @@ services:
     ports:
       - "3000:3000"
     environment:
-      DATABASE_URL: postgres://canvas:canvas@postgres:5432/canvas?sslmode=disable
-      APP_ORIGIN: http://localhost:3000
-      COOKIE_SECURE: "false"
+      DATABASE_URL: postgres://canvas:${CANVAS_POSTGRES_PASSWORD:-canvas}@postgres:5432/canvas?sslmode=disable
+      APP_ORIGIN: ${APP_ORIGIN:-http://localhost:3000}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
       SESSION_TTL: ${SESSION_TTL:-168h}
       HAJIMI_BASE_URL: ${HAJIMI_BASE_URL:-}
       HAJIMI_SSO_CLIENT_SECRET: ${HAJIMI_SSO_CLIENT_SECRET:-}
