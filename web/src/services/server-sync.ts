@@ -259,6 +259,10 @@ function schedule(domain: SyncDomain) {
     }, DEBOUNCE_MS));
 }
 
+export function scheduleAccountSync(domain: SyncDomain) {
+    schedule(domain);
+}
+
 function compensate() {
     if (!running || !navigator.onLine || document.visibilityState === "hidden") return;
     for (const domain of SYNC_DOMAINS) schedule(domain);

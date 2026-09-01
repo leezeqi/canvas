@@ -22,6 +22,7 @@ import { boolConfig, modelOptionLabel, useConfigStore, useEffectiveConfig, type 
 import { useThemeStore } from "@/stores/use-theme-store";
 import type { ReferenceImage } from "@/types/image";
 import i18n from "@/i18n";
+import { scheduleAccountSync } from "@/services/server-sync";
 
 type GeneratedVideo = {
     id: string;
@@ -279,7 +280,10 @@ export default function VideoPage() {
             .filter((log) => selectedLogIds.includes(log.id))
             .map((log) => log.video?.storageKey)
             .filter((key): key is string => Boolean(key));
-        void Promise.all([deleteStoredMedia(mediaKeys), ...selectedLogIds.map((id) => logStore.removeItem(id))]).then(() => refreshLogs());
+        void Promise.all([deleteStoredMedia(mediaKeys), ...selectedLogIds.map((id) => logStore.removeItem(id))]).then(() => {
+            scheduleAccountSync("video-workbench");
+            return refreshLogs();
+        });
         if (previewLog && selectedLogIds.includes(previewLog.id)) {
             setPreviewLog(null);
             setResults([]);
@@ -290,6 +294,7 @@ export default function VideoPage() {
 
     const saveLog = async (log: GenerationLog, resumePending = true) => {
         await logStore.setItem(log.id, serializeLog(log));
+        scheduleAccountSync("video-workbench");
         await refreshLogs(resumePending);
     };
 
