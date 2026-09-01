@@ -63,7 +63,7 @@ export function mergeSyncRecords(local: Array<Record<string, unknown>>, remote: 
     return { records: Array.from(byId.values()), tombstones: Array.from(tombstoneById.values()) };
 }
 
-export async function syncDomainRequest(domain: SyncDomain, payload: SyncDomainPayload, retries = 0): Promise<SyncDomainResponse> {
+export async function syncDomainRequest(domain: SyncDomain, payload: SyncDomainPayload, retries = 0, baseData?: unknown): Promise<SyncDomainResponse> {
     const response = await fetch(`/api/sync/domains/${encodeURIComponent(domain)}`, {
         method: "PUT",
         credentials: "include",
@@ -75,8 +75,8 @@ export async function syncDomainRequest(domain: SyncDomain, payload: SyncDomainP
     const body = await readJson(response);
     if (response.status === 409 && retries < 3) {
         const remote = normalizeResponse(body, domain);
-        const merged = mergeDomainPayload(payload.data, remote.data, [...(payload.tombstones || []), ...(remote.tombstones || [])]);
-        return syncDomainRequest(domain, { baseVersion: remote.version, data: merged.data, tombstones: merged.tombstones }, retries + 1);
+        const merged = domain === "config" ? mergeConfigPayload(baseData, payload.data, remote.data, [...(payload.tombstones || []), ...(remote.tombstones || [])]) : mergeDomainPayload(payload.data, remote.data, [...(payload.tombstones || []), ...(remote.tombstones || [])]);
+        return syncDomainRequest(domain, { baseVersion: remote.version, data: merged.data, tombstones: merged.tombstones }, retries + 1, baseData);
     }
     if (!response.ok) throw new Error(body?.error?.message || `同步失败（HTTP ${response.status}）`);
     return normalizeResponse(body, domain);
@@ -170,7 +170,7 @@ async function pushDomain(domain: SyncDomain, data: unknown, baseVersion = versi
     const previous = await metadataStore.getItem<unknown>(snapshotKey);
     const tombstones = deriveTombstones(previous, data);
     const persistedData = attachTombstones(data, tombstones);
-    const response = await syncDomainRequest(domain, { baseVersion, data: persistedData, tombstones });
+    const response = await syncDomainRequest(domain, { baseVersion, data: persistedData, tombstones }, 0, previous);
     versions.set(domain, response.version);
     await metadataStore.setItem(snapshotKey, response.data ?? persistedData);
     await syncLocalFiles(data, response.files);
@@ -352,6 +352,29 @@ function mergeDomainPayload(local: unknown, remote: unknown, tombstones: SyncTom
     }
     result[SYNC_TOMBSTONES_FIELD] = mergedTombstones;
     return { data: result, tombstones: mergedTombstones };
+}
+
+function mergeConfigPayload(base: unknown, local: unknown, remote: unknown, tombstones: SyncTombstone[]) {
+    if (!isRecord(base) || !isRecord(local) || !isRecord(remote)) return mergeDomainPayload(local, remote, tombstones);
+    const remotePayload = mergeDomainPayload({}, remote, tombstones);
+    const result = { ...((remotePayload.data || {}) as Record<string, unknown>) };
+    for (const [key, localValue] of Object.entries(local)) {
+        const baseValue = base[key];
+        if (key === "config" && isRecord(localValue) && isRecord(baseValue) && isRecord(remotePayload.data) && isRecord(remotePayload.data.config)) {
+            const config = { ...(remotePayload.data.config as Record<string, unknown>) };
+            for (const [configKey, value] of Object.entries(localValue)) {
+                if (JSON.stringify(value) !== JSON.stringify(baseValue[configKey])) config[configKey] = value;
+            }
+            result.config = config;
+        } else if (JSON.stringify(localValue) !== JSON.stringify(baseValue)) {
+            result[key] = localValue;
+        }
+    }
+    return { data: result, tombstones: remotePayload.tombstones };
+}
+
+function isRecord(value: unknown): value is Record<string, any> {
+    return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
 
 function normalizeResponse(body: any, domain?: SyncDomain): SyncDomainResponse {

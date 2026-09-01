@@ -81,4 +81,19 @@ describe("syncDomainRequest", () => {
         expect(fetchMock).toHaveBeenCalledTimes(2);
         expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body))).toMatchObject({ baseVersion: 3 });
     });
+
+    it("does not overwrite a newer remote configuration with a stale browser snapshot", async () => {
+        const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+            new Response(JSON.stringify({ error: { details: { version: 3, data: { config: { baseUrl: "https://custom.example.com", channels: [{ id: "custom" }] } }, files: [] } } }), { status: 409, headers: { "Content-Type": "application/json" } }),
+        ).mockResolvedValueOnce(
+            new Response(JSON.stringify({ version: 4, data: { config: { baseUrl: "https://custom.example.com", channels: [{ id: "custom" }] } }, files: [] }), { status: 200, headers: { "Content-Type": "application/json" } }),
+        );
+        await syncDomainRequest(
+            "config",
+            { baseVersion: 2, data: { config: { baseUrl: "https://api.openai.com", channels: [] } } },
+            0,
+            { config: { baseUrl: "https://api.openai.com", channels: [] } },
+        );
+        expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body))).toMatchObject({ baseVersion: 3, data: { config: { baseUrl: "https://custom.example.com" } } });
+    });
 });
