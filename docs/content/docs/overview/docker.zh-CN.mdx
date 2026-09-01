@@ -49,7 +49,9 @@ docker compose -f docker-compose.local.yml up -d --build
 
 ## 数据说明
 
-当前主应用镜像只启动 Next.js。画布、我的素材、生成记录和 AI API Key 默认保存在浏览器本地；第三方提示词由浏览器前端直连拉取，不需要额外挂载数据目录。
+主应用镜像包含静态前端和认证/同步 API。登录账号后的画布、素材、生成记录、配置、提示词源、插件和主题会保存到 PostgreSQL 与文件 volume，并可在设备间自动同步。生产环境必须设置 `CANVAS_POSTGRES_PASSWORD`、`DATA_ENCRYPTION_KEY` 和正确的 `APP_ORIGIN`；文件 volume `canvas_files` 不能删除，否则媒体文件无法恢复。
+
+WebDAV 配置、本地 Agent 凭据和提示词缓存仍保留在当前浏览器，不会上传到服务端。AI API Key 会在服务端加密存储，浏览器调用第三方接口时仍由前端直连。
 
 ## 统计分析（可选）
 

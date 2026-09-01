@@ -378,6 +378,8 @@ export default {
         restoring: "Restoring your session",
         sessionFailed: "Unable to verify your session",
         sessionFailedDescription: "The authentication service is unavailable. Check your connection and try again.",
+        syncFailed: "Unable to load account data",
+        syncFailedDescription: "The account sync service is unavailable. Check your connection and try again.",
         retry: "Retry",
         account: "Account",
         accountMenu: "Account menu",

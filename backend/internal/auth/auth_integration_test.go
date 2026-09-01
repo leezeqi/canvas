@@ -146,6 +146,8 @@ func newIntegrationAuthServer(t *testing.T, hajimiBaseURL string) (http.Handler,
 	cfg := Config{
 		AppOrigin: "https://canvas.example", CookieSecure: true, SessionTTL: time.Hour,
 		HajimiBaseURL: hajimiBaseURL, HajimiSSOClientSecret: "canvas-secret",
+		DataEncryptionKey: "integration-test-encryption-key",
+		FileStoragePath:   t.TempDir(),
 	}
 	return NewServer(cfg, pool), pool
 }

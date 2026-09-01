@@ -37,7 +37,9 @@ cd docs
 docker compose -f docker-compose.local.yml up -d --build
 ```
 
-The main application container only runs Next.js. Canvases, My Assets, generation history, and API keys are stored in the browser by default, while prompt repositories are fetched directly by the frontend. No persistent data volume is required for this data.
+The main image includes the static frontend and the authentication/sync API. After sign-in, canvas projects, assets, generation history, configuration, prompt sources, plugins, and theme preferences are stored in PostgreSQL plus the file volume and synchronized across devices. Production deployments must set `CANVAS_POSTGRES_PASSWORD`, `DATA_ENCRYPTION_KEY`, and the correct `APP_ORIGIN`; keep the `canvas_files` volume because deleting it removes synchronized media.
+
+WebDAV settings, local Agent credentials, and prompt caches remain in the current browser and are never uploaded. AI API keys are encrypted at rest on the server, while browser requests to providers remain direct.
 
 ## Optional analytics
 

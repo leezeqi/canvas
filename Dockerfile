@@ -30,3 +30,6 @@ COPY backend/docker-entrypoint.sh /docker-entrypoint.d/50-canvas-api.sh
 RUN chmod +x /docker-entrypoint.d/40-runtime-config.sh /docker-entrypoint.d/50-canvas-api.sh
 
 EXPOSE 3000
+
+HEALTHCHECK --interval=10s --timeout=5s --start-period=15s --retries=6 \
+    CMD wget -q -O - http://127.0.0.1:3000/api/health >/dev/null || exit 1

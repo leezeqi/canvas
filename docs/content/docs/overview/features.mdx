@@ -57,11 +57,11 @@ See [Third-party Prompt Sources](/docs/overview/third-party-prompt-repositories)
 ## Configuration and synchronization
 
 - Export and import channel, model, generation, prompt-source, and WebDAV settings.
-- Store application data and API credentials locally in the browser.
+- Store account data and encrypted API credentials on the server after sign-in, with per-account isolation.
+- Synchronize canvas, assets, generation history, configuration, prompt sources, plugins, and theme preferences across devices with conflict retries and deletion tombstones.
 - Use WebDAV for optional cross-device synchronization.
 
 ## Current limitations
 
-- The project is frontend-first and does not provide built-in cloud accounts or cloud storage.
-- API keys remain in browser storage and requests are sent directly to configured providers.
+- WebDAV and local Agent credentials remain device-local; provider requests are still sent directly from the browser.
 - Production Docker static-resource paths still require broader deployment verification.

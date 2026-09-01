@@ -12,10 +12,20 @@ services:
       HAJIMI_BASE_URL: ${HAJIMI_BASE_URL:-}
       HAJIMI_SSO_CLIENT_SECRET: ${HAJIMI_SSO_CLIENT_SECRET:-}
       HAJIMI_LOGIN_URL: ${HAJIMI_LOGIN_URL:-}
+      DATA_ENCRYPTION_KEY: ${DATA_ENCRYPTION_KEY:?DATA_ENCRYPTION_KEY is required}
+      FILE_STORAGE_PATH: /var/lib/canvas/files
     depends_on:
       postgres:
         condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:3000/api/health >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
+    volumes:
+      - canvas_files:/var/lib/canvas/files
     # 统计分析（可选，默认关闭）。每家一个独立变量，填了谁就启用谁，可同时启用多家：
     # environment:
     #   ANALYTICS_GA4_ID: G-XXXXXXXXXX                    # Google Analytics 4 衡量 ID
@@ -38,3 +48,4 @@ services:
 
 volumes:
   canvas_postgres_data:
+  canvas_files:

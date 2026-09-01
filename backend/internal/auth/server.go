@@ -44,6 +44,7 @@ type errorBody struct {
 	Error struct {
 		Code    string `json:"code"`
 		Message string `json:"message"`
+		Details any    `json:"details,omitempty"`
 	} `json:"error"`
 }
 
@@ -56,6 +57,12 @@ func NewServer(cfg Config, db *pgxpool.Pool) http.Handler {
 	mux.HandleFunc("POST /api/auth/logout", s.logout)
 	mux.HandleFunc("GET /api/auth/session", s.session)
 	mux.HandleFunc("POST /api/auth/hajimi/exchange", s.exchangeHajimi)
+	mux.HandleFunc("GET /api/sync/state", s.syncState)
+	mux.HandleFunc("GET /api/sync/domains/{domain}", s.syncDomain)
+	mux.HandleFunc("PUT /api/sync/domains/{domain}", s.putSyncDomain)
+	mux.HandleFunc("GET /api/sync/files/{storageKey...}", s.getSyncFile)
+	mux.HandleFunc("PUT /api/sync/files/{storageKey...}", s.putSyncFile)
+	mux.HandleFunc("DELETE /api/sync/files/{storageKey...}", s.deleteSyncFile)
 	return s.middleware(mux)
 }
 
@@ -76,12 +83,16 @@ func (s *Server) middleware(next http.Handler) http.Handler {
 				return
 			}
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
 		if r.Method != http.MethodGet && origin != "" && origin != s.cfg.AppOrigin {
 			writeError(w, http.StatusForbidden, "ORIGIN_FORBIDDEN", "请求来源不受信任")
+			return
+		}
+		if strings.HasPrefix(r.URL.Path, "/api/sync/files/") && (strings.Contains(r.URL.Path, "/../") || strings.Contains(r.URL.Path, "\\")) {
+			writeError(w, http.StatusBadRequest, "INVALID_STORAGE_KEY", "文件路径无效")
 			return
 		}
 		next.ServeHTTP(w, r)
@@ -411,10 +422,15 @@ func writeData(w http.ResponseWriter, status int, data any) {
 }
 
 func writeError(w http.ResponseWriter, status int, code, message string) {
+	writeErrorDetails(w, status, code, message, nil)
+}
+
+func writeErrorDetails(w http.ResponseWriter, status int, code, message string, details any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
 	body := errorBody{}
 	body.Error.Code = code
 	body.Error.Message = message
+	body.Error.Details = details
 	_ = json.NewEncoder(w).Encode(body)
 }

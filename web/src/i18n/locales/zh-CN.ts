@@ -378,6 +378,8 @@ export default {
         restoring: "正在恢复登录状态",
         sessionFailed: "无法确认登录状态",
         sessionFailedDescription: "认证服务暂时不可用，请检查网络后重试。",
+        syncFailed: "无法加载账号数据",
+        syncFailedDescription: "账号数据同步服务暂时不可用，请检查网络后重试。",
         retry: "重试",
         account: "账号",
         accountMenu: "账号菜单",

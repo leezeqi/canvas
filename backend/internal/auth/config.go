@@ -17,6 +17,8 @@ type Config struct {
 	SessionTTL            time.Duration
 	HajimiBaseURL         string
 	HajimiSSOClientSecret string
+	DataEncryptionKey     string
+	FileStoragePath       string
 }
 
 func LoadConfig() (Config, error) {
@@ -27,9 +29,14 @@ func LoadConfig() (Config, error) {
 		SessionTTL:            7 * 24 * time.Hour,
 		HajimiBaseURL:         strings.TrimRight(strings.TrimSpace(os.Getenv("HAJIMI_BASE_URL")), "/"),
 		HajimiSSOClientSecret: strings.TrimSpace(os.Getenv("HAJIMI_SSO_CLIENT_SECRET")),
+		DataEncryptionKey:     strings.TrimSpace(os.Getenv("DATA_ENCRYPTION_KEY")),
+		FileStoragePath:       envOr("FILE_STORAGE_PATH", "./data/files"),
 	}
 	if cfg.DatabaseURL == "" {
 		return Config{}, fmt.Errorf("DATABASE_URL is required")
+	}
+	if len(cfg.DataEncryptionKey) < 16 {
+		return Config{}, fmt.Errorf("DATA_ENCRYPTION_KEY must contain at least 16 characters")
 	}
 	originURL, err := url.ParseRequestURI(cfg.AppOrigin)
 	if err != nil || originURL.Scheme == "" || originURL.Host == "" || originURL.Path != "" || originURL.RawQuery != "" || originURL.Fragment != "" {

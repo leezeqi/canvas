@@ -1,12 +1,17 @@
 // @vitest-environment jsdom
 
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 
 import { AuthGuard } from "@/components/auth/auth-guard";
 import "@/i18n";
 import { useUserStore } from "@/stores/use-user-store";
+
+vi.mock("@/services/server-sync", () => ({
+    startAccountSync: vi.fn().mockResolvedValue(undefined),
+    stopAccountSync: vi.fn().mockResolvedValue(undefined),
+}));
 
 function CurrentLocation() {
     const location = useLocation();
@@ -38,7 +43,7 @@ describe("AuthGuard", () => {
         expect(screen.queryByText("private canvas")).toBeNull();
     });
 
-    it("renders the protected outlet for an authenticated user", () => {
+    it("renders the protected outlet for an authenticated user", async () => {
         useUserStore.setState({
             user: { id: "user-1", email: "user@example.com", name: "测试用户", avatarUrl: null, provider: "local" },
             status: "authenticated",
@@ -54,6 +59,6 @@ describe("AuthGuard", () => {
             </MemoryRouter>,
         );
 
-        expect(screen.getByText("private canvas")).toBeTruthy();
+        await waitFor(() => expect(screen.getByText("private canvas")).toBeTruthy());
     });
 });
