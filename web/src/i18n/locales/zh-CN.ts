@@ -380,6 +380,7 @@ export default {
         sessionFailedDescription: "认证服务暂时不可用，请检查网络后重试。",
         syncFailed: "无法加载账号数据",
         syncFailedDescription: "账号数据同步服务暂时不可用，请检查网络后重试。",
+        syncing: "正在后台同步账号数据",
         retry: "重试",
         account: "账号",
         accountMenu: "账号菜单",

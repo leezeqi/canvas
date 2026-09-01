@@ -27,12 +27,18 @@ const STORAGE_KEY = "infinite-canvas:server-sync:active-account";
 const LEGACY_MIGRATION_KEY = "legacy-migrated";
 const SYNC_TOMBSTONES_FIELD = "__syncTombstones";
 const DEBOUNCE_MS = 700;
+export const SYNC_REQUEST_TIMEOUT_MS = 30_000;
+export const SYNC_ROUND_TIMEOUT_MS = 5 * 60_000;
+const SYNC_TIMEOUT_MESSAGE = "同步请求超时，请稍后重试";
+const SYNC_ROUND_TIMEOUT_MESSAGE = "账号数据同步超时，已保留本地数据并将在稍后重试";
 const subscriptions: Array<() => void> = [];
 const timers = new Map<SyncDomain, ReturnType<typeof setTimeout>>();
 const versions = new Map<SyncDomain, number>();
 let activeUserId = "";
 let applying = false;
 let running = false;
+let activeSyncController: AbortController | null = null;
+let syncLockHeld = false;
 
 export function accountStorageKey(userId: string, domain: string) {
     return `infinite-canvas:account:${encodeURIComponent(userId)}:${domain}`;
@@ -64,7 +70,7 @@ export function mergeSyncRecords(local: Array<Record<string, unknown>>, remote: 
 }
 
 export async function syncDomainRequest(domain: SyncDomain, payload: SyncDomainPayload, retries = 0, baseData?: unknown): Promise<SyncDomainResponse> {
-    const response = await fetch(`/api/sync/domains/${encodeURIComponent(domain)}`, {
+    const response = await syncFetch(`/api/sync/domains/${encodeURIComponent(domain)}`, {
         method: "PUT",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -83,7 +89,7 @@ export async function syncDomainRequest(domain: SyncDomain, payload: SyncDomainP
 }
 
 export async function getSyncDomain(domain: SyncDomain): Promise<SyncDomainResponse> {
-    const response = await fetch(`/api/sync/domains/${encodeURIComponent(domain)}`, { credentials: "include" });
+    const response = await syncFetch(`/api/sync/domains/${encodeURIComponent(domain)}`, { credentials: "include" });
     const body = await readJson(response);
     if (response.status === 404) return { version: 0, data: null, files: [] };
     if (!response.ok) throw new Error(body?.error?.message || `读取同步数据失败（HTTP ${response.status}）`);
@@ -91,7 +97,7 @@ export async function getSyncDomain(domain: SyncDomain): Promise<SyncDomainRespo
 }
 
 export async function getSyncState() {
-    const response = await fetch("/api/sync/state", { credentials: "include" });
+    const response = await syncFetch("/api/sync/state", { credentials: "include" });
     const body = await readJson(response);
     if (!response.ok) throw new Error(body?.error?.message || `读取同步状态失败（HTTP ${response.status}）`);
     const value = body?.data || body;
@@ -102,11 +108,11 @@ export async function getSyncState() {
 export async function syncFile(storageKey: string, blob?: Blob, mimeType = "application/octet-stream") {
     const path = encodeURIComponent(storageKey).replace(/%2F/g, "/");
     if (blob) {
-        const response = await fetch(`/api/sync/files/${path}`, { method: "PUT", credentials: "include", headers: { "Content-Type": mimeType }, body: blob });
+        const response = await syncFetch(`/api/sync/files/${path}`, { method: "PUT", credentials: "include", headers: { "Content-Type": mimeType }, body: blob });
         if (!response.ok) throw new Error(`上传媒体失败（HTTP ${response.status}）`);
         return;
     }
-    const response = await fetch(`/api/sync/files/${path}`, { credentials: "include" });
+    const response = await syncFetch(`/api/sync/files/${path}`, { credentials: "include" });
     if (response.status === 404) return null;
     if (!response.ok) throw new Error(`下载媒体失败（HTTP ${response.status}）`);
     return response.blob();
@@ -117,11 +123,27 @@ export async function startAccountSync(user: AuthUser) {
     if (running) await stopAccountSync();
     activeUserId = user.id;
     running = true;
-    await waitForHydration();
+    const controller = new AbortController();
+    activeSyncController = controller;
+    try {
+        await withTimeout(syncAccountData(user, controller.signal), SYNC_ROUND_TIMEOUT_MS, () => controller.abort(new Error(SYNC_ROUND_TIMEOUT_MESSAGE)));
+    } catch (error) {
+        await cleanupSyncRuntime(false);
+        throw error;
+    } finally {
+        activeSyncController = null;
+    }
+}
+
+async function syncAccountData(user: AuthUser, signal: AbortSignal) {
+    await waitForHydration(signal);
+    throwIfSyncAborted(signal);
     const previousAccount = await metadataStore.getItem<string>(STORAGE_KEY);
+    throwIfSyncAborted(signal);
     const canMigrate = !previousAccount;
     if (previousAccount && previousAccount !== user.id) await clearLocalAccountState();
     const state = await getSyncState();
+    throwIfSyncAborted(signal);
     const domainData = SYNC_DOMAINS.map((domain) => {
         const remote = state.domains[domain];
         return [domain, remote ? { ...remote, files: state.files } : { version: 0, data: null, files: state.files }] as const;
@@ -129,23 +151,28 @@ export async function startAccountSync(user: AuthUser) {
     for (const [domain, remote] of domainData) {
         versions.set(domain, remote.version);
         const local = await readDomain(domain);
+        throwIfSyncAborted(signal);
         const mergedRemote = mergeRemoteDomainData(domain, local, remote, canMigrate);
         await syncRemoteFiles(remote.files, mergedRemote?.data ?? local);
+        throwIfSyncAborted(signal);
         const legacyHasData = hasDomainData(local);
         const alreadyMigrated = Boolean(await metadataStore.getItem(`${accountStorageKey(user.id, domain)}:${LEGACY_MIGRATION_KEY}`));
         if (shouldMigrateLegacyData({ remoteVersion: remote.version, legacyHasData, alreadyMigrated: alreadyMigrated || !canMigrate })) {
             await pushDomain(domain, local, remote.version);
+            throwIfSyncAborted(signal);
             await metadataStore.setItem(`${accountStorageKey(user.id, domain)}:${LEGACY_MIGRATION_KEY}`, true);
             continue;
         }
         if (mergedRemote) {
             await applyDomain(domain, mergedRemote.data);
+            throwIfSyncAborted(signal);
             await metadataStore.setItem(`${accountStorageKey(user.id, domain)}:snapshot`, mergedRemote.data);
             if (JSON.stringify(mergedRemote.data) !== JSON.stringify(remote.data)) await pushDomain(domain, mergedRemote.data, remote.version);
             else await syncLocalFiles(mergedRemote.data, remote.files);
         }
     }
     await metadataStore.setItem(STORAGE_KEY, user.id);
+    throwIfSyncAborted(signal);
     installSubscriptions();
     window.addEventListener("online", compensate);
     document.addEventListener("visibilitychange", compensate);
@@ -153,28 +180,85 @@ export async function startAccountSync(user: AuthUser) {
 
 export async function stopAccountSync() {
     if (!running) return;
+    await cleanupSyncRuntime(true);
+}
+
+async function cleanupSyncRuntime(clearLocal: boolean) {
     subscriptions.splice(0).forEach((unsubscribe) => unsubscribe());
     timers.forEach((timer) => clearTimeout(timer));
     timers.clear();
     window.removeEventListener("online", compensate);
     document.removeEventListener("visibilitychange", compensate);
-    await clearLocalAccountState();
+    if (clearLocal) await clearLocalAccountState();
     versions.clear();
     activeUserId = "";
     running = false;
 }
 
+async function withAccountSyncLock<T>(userId: string, task: () => Promise<T>): Promise<T | undefined> {
+    if (syncLockHeld) return task();
+    const lockManager = typeof navigator !== "undefined" && "locks" in navigator ? navigator.locks : undefined;
+    if (!lockManager) return task();
+    let acquired = false;
+    let result: T | undefined;
+    await lockManager.request(`infinite-canvas:sync:${encodeURIComponent(userId)}`, async (lock) => {
+        if (!lock) return;
+        acquired = true;
+        syncLockHeld = true;
+        try {
+            result = await task();
+        } finally {
+            syncLockHeld = false;
+        }
+    });
+    return acquired ? result : undefined;
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, onTimeout: () => void) {
+    return new Promise<T>((resolve, reject) => {
+        const timer = setTimeout(() => {
+            onTimeout();
+            reject(new Error(SYNC_ROUND_TIMEOUT_MESSAGE));
+        }, timeoutMs);
+        promise.then(resolve, reject).finally(() => clearTimeout(timer));
+    });
+}
+
+async function syncFetch(input: RequestInfo | URL, init: RequestInit = {}) {
+    const controller = new AbortController();
+    let timedOut = false;
+    const parentSignal = activeSyncController?.signal;
+    const abort = () => controller.abort(parentSignal?.reason);
+    if (parentSignal?.aborted) abort();
+    else parentSignal?.addEventListener("abort", abort, { once: true });
+    const timer = setTimeout(() => {
+        timedOut = true;
+        controller.abort(new Error(SYNC_TIMEOUT_MESSAGE));
+    }, SYNC_REQUEST_TIMEOUT_MS);
+    try {
+        return await fetch(input, { ...init, signal: controller.signal });
+    } catch (error) {
+        if (timedOut) throw new Error(SYNC_TIMEOUT_MESSAGE);
+        throw error;
+    } finally {
+        clearTimeout(timer);
+        parentSignal?.removeEventListener("abort", abort);
+    }
+}
+
 async function pushDomain(domain: SyncDomain, data: unknown, baseVersion = versions.get(domain) || 0) {
     if (!activeUserId) return;
-    const snapshotKey = `${accountStorageKey(activeUserId, domain)}:snapshot`;
-    const previous = await metadataStore.getItem<unknown>(snapshotKey);
-    const tombstones = deriveTombstones(previous, data);
-    const persistedData = attachTombstones(data, tombstones);
-    const response = await syncDomainRequest(domain, { baseVersion, data: persistedData, tombstones }, 0, previous);
-    versions.set(domain, response.version);
-    await metadataStore.setItem(snapshotKey, response.data ?? persistedData);
-    await syncLocalFiles(data, response.files);
-    if (response.data != null) await applyDomain(domain, response.data);
+    await withAccountSyncLock(activeUserId, async () => {
+        const snapshotKey = `${accountStorageKey(activeUserId, domain)}:snapshot`;
+        const previous = await metadataStore.getItem<unknown>(snapshotKey);
+        const tombstones = deriveTombstones(previous, data);
+        const persistedData = attachTombstones(data, tombstones);
+        const response = await syncDomainRequest(domain, { baseVersion, data: persistedData, tombstones }, 0, previous);
+        versions.set(domain, response.version);
+        await metadataStore.setItem(snapshotKey, response.data ?? persistedData);
+        await syncLocalFiles(data, response.files);
+        if (response.data != null) await applyDomain(domain, response.data);
+    });
 }
 
 function deriveTombstones(previous: unknown, current: unknown): SyncTombstone[] {
@@ -218,6 +302,11 @@ async function syncRemoteFiles(files: SyncFile[], data: unknown) {
 }
 
 async function syncLocalFiles(data: unknown, remoteFiles: SyncFile[]) {
+    if (!activeUserId) return;
+    await withAccountSyncLock(activeUserId, () => syncLocalFilesUnlocked(data, remoteFiles));
+}
+
+async function syncLocalFilesUnlocked(data: unknown, remoteFiles: SyncFile[]) {
     const remote = new Map(remoteFiles.map((file) => [file.storageKey, file]));
     for (const storageKey of collectStorageKeys(data)) {
         const blob = storageKey.startsWith("image:") ? await getImageBlob(storageKey) : await getMediaBlob(storageKey);
@@ -401,11 +490,26 @@ function timeOf(value: unknown) {
     return 0;
 }
 
-function waitForHydration() {
+function waitForHydration(signal?: AbortSignal) {
     const stores = [useCanvasStore, useAssetStore];
-    return Promise.all(stores.map((store) => store.getState().hydrated ? Promise.resolve() : new Promise<void>((resolve) => {
-        const unsubscribe = store.subscribe((state) => { if (state.hydrated) { unsubscribe(); resolve(); } });
+    return Promise.all(stores.map((store) => store.getState().hydrated ? Promise.resolve() : new Promise<void>((resolve, reject) => {
+        const unsubscribe = store.subscribe((state) => {
+            if (!state.hydrated) return;
+            unsubscribe();
+            signal?.removeEventListener("abort", abort);
+            resolve();
+        });
+        const abort = () => {
+            unsubscribe();
+            reject(signal?.reason instanceof Error ? signal.reason : new Error(SYNC_ROUND_TIMEOUT_MESSAGE));
+        };
+        if (signal?.aborted) abort();
+        else signal?.addEventListener("abort", abort, { once: true });
     })));
+}
+
+function throwIfSyncAborted(signal: AbortSignal) {
+    if (signal.aborted) throw signal.reason instanceof Error ? signal.reason : new Error(SYNC_ROUND_TIMEOUT_MESSAGE);
 }
 
 export async function downloadSyncFile(storageKey: string) {

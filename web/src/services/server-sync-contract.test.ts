@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { syncDomainRequest, syncFile } from "@/services/server-sync";
+import { SYNC_REQUEST_TIMEOUT_MS, syncDomainRequest, syncFile } from "@/services/server-sync";
 
 describe("server sync HTTP contract", () => {
     beforeEach(() => vi.restoreAllMocks());
@@ -50,5 +50,19 @@ describe("server sync HTTP contract", () => {
         }));
 
         await expect(syncDomainRequest("canvas", { baseVersion: 0, data: {} })).rejects.toThrow("请先登录");
+    });
+
+    it("aborts a sync file request when the request timeout is reached", async () => {
+        vi.useFakeTimers();
+        vi.spyOn(globalThis, "fetch").mockImplementation((_input, init) => new Promise((_resolve, reject) => {
+            init?.signal?.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")), { once: true });
+        }));
+
+        const request = syncFile("image:stalled", new Blob(["x"], { type: "image/png" }));
+        const assertion = expect(request).rejects.toThrow("同步请求超时");
+        await vi.advanceTimersByTimeAsync(SYNC_REQUEST_TIMEOUT_MS);
+
+        await assertion;
+        vi.useRealTimers();
     });
 });
