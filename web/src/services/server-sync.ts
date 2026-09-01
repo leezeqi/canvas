@@ -142,6 +142,7 @@ export async function startAccountSync(user: AuthUser) {
             await applyDomain(domain, mergedRemote.data);
             await metadataStore.setItem(`${accountStorageKey(user.id, domain)}:snapshot`, mergedRemote.data);
             if (JSON.stringify(mergedRemote.data) !== JSON.stringify(remote.data)) await pushDomain(domain, mergedRemote.data, remote.version);
+            else await syncLocalFiles(mergedRemote.data, remote.files);
         }
     }
     await metadataStore.setItem(STORAGE_KEY, user.id);
