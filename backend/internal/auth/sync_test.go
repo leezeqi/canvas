@@ -57,7 +57,7 @@ func TestSyncUnauthenticated(t *testing.T) {
 	for _, path := range []string{"/api/sync/state", "/api/sync/domains/canvas", "/api/sync/files/a.txt"} {
 		req := httptest.NewRequest(http.MethodGet, path, nil)
 		recorder := httptest.NewRecorder()
-		server.middleware(server.syncState).ServeHTTP(recorder, req)
+		server.middleware(http.HandlerFunc(server.syncState)).ServeHTTP(recorder, req)
 		if recorder.Code != http.StatusUnauthorized {
 			t.Fatalf("%s status = %d", path, recorder.Code)
 		}
