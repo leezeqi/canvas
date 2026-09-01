@@ -11,4 +11,6 @@ interface ImportMetaEnv {
     readonly VITE_ANALYTICS_GA4_ID?: string;
     // Baidu Analytics site ID
     readonly VITE_ANALYTICS_BAIDU_ID?: string;
+    // Hajimi's dedicated Canvas sign-in entry. The callback URL is supplied through return_to.
+    readonly VITE_HAJIMI_LOGIN_URL?: string;
 }

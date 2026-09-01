@@ -8,6 +8,7 @@
 type RuntimeConfig = {
     ANALYTICS_GA4_ID?: string; // GA4 measurement ID (G-XXXX)
     ANALYTICS_BAIDU_ID?: string; // Baidu Analytics site ID
+    HAJIMI_LOGIN_URL?: string; // Hajimi's dedicated Canvas sign-in entry
 };
 
 declare global {
@@ -27,3 +28,4 @@ function read(key: keyof RuntimeConfig, buildTime: string | undefined, fallback 
 
 export const ANALYTICS_GA4_ID = read("ANALYTICS_GA4_ID", import.meta.env.VITE_ANALYTICS_GA4_ID);
 export const ANALYTICS_BAIDU_ID = read("ANALYTICS_BAIDU_ID", import.meta.env.VITE_ANALYTICS_BAIDU_ID);
+export const HAJIMI_LOGIN_URL = read("HAJIMI_LOGIN_URL", import.meta.env.VITE_HAJIMI_LOGIN_URL);

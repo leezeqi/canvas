@@ -4,8 +4,37 @@ services:
     container_name: infinite-canvas
     ports:
       - "3000:3000"
+    environment:
+      DATABASE_URL: postgres://canvas:${CANVAS_POSTGRES_PASSWORD:?CANVAS_POSTGRES_PASSWORD is required}@postgres:5432/canvas?sslmode=disable
+      APP_ORIGIN: ${APP_ORIGIN:-http://localhost:3000}
+      COOKIE_SECURE: ${COOKIE_SECURE:-}
+      SESSION_TTL: ${SESSION_TTL:-168h}
+      HAJIMI_BASE_URL: ${HAJIMI_BASE_URL:-}
+      HAJIMI_SSO_CLIENT_SECRET: ${HAJIMI_SSO_CLIENT_SECRET:-}
+      HAJIMI_LOGIN_URL: ${HAJIMI_LOGIN_URL:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
     # 统计分析（可选，默认关闭）。每家一个独立变量，填了谁就启用谁，可同时启用多家：
     # environment:
     #   ANALYTICS_GA4_ID: G-XXXXXXXXXX                    # Google Analytics 4 衡量 ID
     #   ANALYTICS_BAIDU_ID: xxxxxxxxxxxxxxxxxxxxxxxxxxxx   # 百度统计站点 ID
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: canvas
+      POSTGRES_PASSWORD: ${CANVAS_POSTGRES_PASSWORD:?CANVAS_POSTGRES_PASSWORD is required}
+      POSTGRES_DB: canvas
+    volumes:
+      - canvas_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U canvas -d canvas"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  canvas_postgres_data:
