@@ -333,6 +333,8 @@ function emptyDomain(domain: SyncDomain): unknown {
 
 export function mergeRemoteDomainData(domain: SyncDomain, local: unknown, remote: SyncDomainResponse, canMigrate: boolean) {
     if (remote.version <= 0 || remote.data == null) return null;
+    // Configuration is a singleton document, so an existing server snapshot is authoritative on login.
+    if (domain === "config") return mergeDomainPayload({}, remote.data, remote.tombstones || []);
     const mergeBase = canMigrate ? emptyDomain(domain) : local;
     return mergeDomainPayload(mergeBase, remote.data, remote.tombstones || []);
 }

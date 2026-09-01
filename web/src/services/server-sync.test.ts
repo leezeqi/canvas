@@ -45,6 +45,26 @@ describe("server sync helpers", () => {
         );
         expect(collectStorageKeys(merged?.data)).toEqual(["image:remote"]);
     });
+
+    it("restores the remote channel configuration on a new device", () => {
+        const merged = mergeRemoteDomainData(
+            "config",
+            { config: { baseUrl: "https://api.openai.com", channels: [] } },
+            {
+                version: 1,
+                data: {
+                    config: {
+                        baseUrl: "https://custom.example.com",
+                        channels: [{ id: "custom", name: "自定义渠道", baseUrl: "https://custom.example.com", apiKey: "key", apiFormat: "openai", models: [{ name: "custom-image", capability: "image" }] }],
+                    },
+                },
+                files: [],
+            },
+            true,
+        );
+        expect((merged?.data as { config: { baseUrl: string; channels: unknown[] } }).config.baseUrl).toBe("https://custom.example.com");
+        expect((merged?.data as { config: { channels: unknown[] } }).config.channels).toHaveLength(1);
+    });
 });
 
 describe("syncDomainRequest", () => {
