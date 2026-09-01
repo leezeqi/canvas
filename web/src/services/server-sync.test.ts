@@ -3,7 +3,9 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import {
     SYNC_DOMAINS,
     accountStorageKey,
+    collectStorageKeys,
     mergeSyncRecords,
+    mergeRemoteDomainData,
     shouldMigrateLegacyData,
     syncDomainRequest,
 } from "@/services/server-sync";
@@ -32,6 +34,16 @@ describe("server sync helpers", () => {
         );
         expect(result.records).toEqual([{ id: "same", updatedAt: "2026-01-03T00:00:00Z", value: "remote" }, { id: "local", updatedAt: "2026-01-01T00:00:00Z" }]);
         expect(result.tombstones).toEqual([{ id: "remote", deletedAt: "2026-01-04T00:00:00Z" }]);
+    });
+
+    it("collects media keys from remote records before applying them", () => {
+        const merged = mergeRemoteDomainData(
+            "image-workbench",
+            { logs: [] },
+            { version: 1, data: { logs: [{ id: "remote-log", images: [{ storageKey: "image:remote" }] }] }, files: [] },
+            true,
+        );
+        expect(collectStorageKeys(merged?.data)).toEqual(["image:remote"]);
     });
 });
 

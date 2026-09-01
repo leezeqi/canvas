@@ -129,7 +129,8 @@ export async function startAccountSync(user: AuthUser) {
     for (const [domain, remote] of domainData) {
         versions.set(domain, remote.version);
         const local = await readDomain(domain);
-        await syncRemoteFiles(remote.files, local);
+        const mergedRemote = mergeRemoteDomainData(domain, local, remote, canMigrate);
+        await syncRemoteFiles(remote.files, mergedRemote?.data ?? local);
         const legacyHasData = hasDomainData(local);
         const alreadyMigrated = Boolean(await metadataStore.getItem(`${accountStorageKey(user.id, domain)}:${LEGACY_MIGRATION_KEY}`));
         if (shouldMigrateLegacyData({ remoteVersion: remote.version, legacyHasData, alreadyMigrated: alreadyMigrated || !canMigrate })) {
@@ -137,12 +138,10 @@ export async function startAccountSync(user: AuthUser) {
             await metadataStore.setItem(`${accountStorageKey(user.id, domain)}:${LEGACY_MIGRATION_KEY}`, true);
             continue;
         }
-        if (remote.version > 0 && remote.data != null) {
-            const mergeBase = canMigrate ? emptyDomain(domain) : local;
-            const merged = mergeDomainPayload(mergeBase, remote.data, remote.tombstones || []);
-            await applyDomain(domain, merged.data);
-            await metadataStore.setItem(`${accountStorageKey(user.id, domain)}:snapshot`, merged.data);
-            if (JSON.stringify(merged.data) !== JSON.stringify(remote.data)) await pushDomain(domain, merged.data, remote.version);
+        if (mergedRemote) {
+            await applyDomain(domain, mergedRemote.data);
+            await metadataStore.setItem(`${accountStorageKey(user.id, domain)}:snapshot`, mergedRemote.data);
+            if (JSON.stringify(mergedRemote.data) !== JSON.stringify(remote.data)) await pushDomain(domain, mergedRemote.data, remote.version);
         }
     }
     await metadataStore.setItem(STORAGE_KEY, user.id);
@@ -227,7 +226,7 @@ async function syncLocalFiles(data: unknown, remoteFiles: SyncFile[]) {
     }
 }
 
-function collectStorageKeys(value: unknown, result = new Set<string>()): string[] {
+export function collectStorageKeys(value: unknown, result = new Set<string>()): string[] {
     if (typeof value === "string") {
         if (/^(image|video|audio|file|video-reference|audio-reference):/.test(value)) result.add(value);
     } else if (value && typeof value === "object") {
@@ -325,6 +324,12 @@ function emptyDomain(domain: SyncDomain): unknown {
     if (domain === "plugins") return { plugins: [] };
     if (domain === "theme") return { theme: "dark" };
     return { logs: [] };
+}
+
+export function mergeRemoteDomainData(domain: SyncDomain, local: unknown, remote: SyncDomainResponse, canMigrate: boolean) {
+    if (remote.version <= 0 || remote.data == null) return null;
+    const mergeBase = canMigrate ? emptyDomain(domain) : local;
+    return mergeDomainPayload(mergeBase, remote.data, remote.tombstones || []);
 }
 
 function mergeDomainPayload(local: unknown, remote: unknown, tombstones: SyncTombstone[]) {
