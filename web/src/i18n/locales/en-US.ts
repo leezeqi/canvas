@@ -343,6 +343,7 @@ export default {
         shortcuts: "Keyboard shortcuts",
         lightTheme: "Switch to light theme",
         darkTheme: "Switch to dark theme",
+        onlineUsers: "{{count}} online",
     },
     auth: {
         login: "Sign in",

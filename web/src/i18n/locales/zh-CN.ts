@@ -343,6 +343,7 @@ export default {
         shortcuts: "快捷键",
         lightTheme: "切换到浅色主题",
         darkTheme: "切换到深色主题",
+        onlineUsers: "{{count}} 人在线",
     },
     auth: {
         login: "登录",

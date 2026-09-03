@@ -30,6 +30,7 @@ type Server struct {
 	cfg        Config
 	db         *pgxpool.Pool
 	httpClient *http.Client
+	presence   *presenceTracker
 }
 
 type userResponse struct {
@@ -49,7 +50,7 @@ type errorBody struct {
 }
 
 func NewServer(cfg Config, db *pgxpool.Pool) http.Handler {
-	s := &Server{cfg: cfg, db: db, httpClient: &http.Client{Timeout: 5 * time.Second}}
+	s := &Server{cfg: cfg, db: db, httpClient: &http.Client{Timeout: 5 * time.Second}, presence: newPresenceTracker(onlineWindow, time.Now)}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/health", s.health)
 	mux.HandleFunc("POST /api/auth/register", s.register)
@@ -57,6 +58,7 @@ func NewServer(cfg Config, db *pgxpool.Pool) http.Handler {
 	mux.HandleFunc("POST /api/auth/logout", s.logout)
 	mux.HandleFunc("GET /api/auth/session", s.session)
 	mux.HandleFunc("POST /api/auth/hajimi/exchange", s.exchangeHajimi)
+	mux.HandleFunc("POST /api/presence/heartbeat", s.presenceHeartbeat)
 	mux.HandleFunc("GET /api/sync/state", s.syncState)
 	mux.HandleFunc("GET /api/sync/domains/{domain}", s.syncDomain)
 	mux.HandleFunc("PUT /api/sync/domains/{domain}", s.putSyncDomain)
