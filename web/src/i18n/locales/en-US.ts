@@ -27,6 +27,7 @@ export default {
         durationMinutes: "{{minutes}}m {{seconds}}s",
         durationSeconds: "{{seconds}}s",
         imageReadFailed: "Failed to read image",
+        retry: "Retry",
     },
     settingsPanels: {
         common: { auto: "Auto", low: "Low", medium: "Medium", high: "High", xhigh: "Extra high" },
@@ -344,6 +345,10 @@ export default {
         lightTheme: "Switch to light theme",
         darkTheme: "Switch to dark theme",
         onlineUsers: "{{count}} online",
+        onlineUsersTitle: "Online users",
+        onlineUsersLoading: "Loading online users",
+        onlineUsersFailed: "Could not load online users",
+        onlineUsersEmpty: "No users online",
     },
     auth: {
         login: "Sign in",

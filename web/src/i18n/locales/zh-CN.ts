@@ -27,6 +27,7 @@ export default {
         durationMinutes: "{{minutes}}分{{seconds}}秒",
         durationSeconds: "{{seconds}}秒",
         imageReadFailed: "读取图片失败",
+        retry: "重试",
     },
     settingsPanels: {
         common: { auto: "自动", low: "低", medium: "中", high: "高", xhigh: "极高" },
@@ -344,6 +345,10 @@ export default {
         lightTheme: "切换到浅色主题",
         darkTheme: "切换到深色主题",
         onlineUsers: "{{count}} 人在线",
+        onlineUsersTitle: "在线用户",
+        onlineUsersLoading: "加载在线用户",
+        onlineUsersFailed: "在线用户加载失败",
+        onlineUsersEmpty: "暂无在线用户",
     },
     auth: {
         login: "登录",

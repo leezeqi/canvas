@@ -59,6 +59,7 @@ func NewServer(cfg Config, db *pgxpool.Pool) http.Handler {
 	mux.HandleFunc("GET /api/auth/session", s.session)
 	mux.HandleFunc("POST /api/auth/hajimi/exchange", s.exchangeHajimi)
 	mux.HandleFunc("POST /api/presence/heartbeat", s.presenceHeartbeat)
+	mux.HandleFunc("GET /api/presence/users", s.presenceUsers)
 	mux.HandleFunc("GET /api/sync/state", s.syncState)
 	mux.HandleFunc("GET /api/sync/domains/{domain}", s.syncDomain)
 	mux.HandleFunc("PUT /api/sync/domains/{domain}", s.putSyncDomain)
