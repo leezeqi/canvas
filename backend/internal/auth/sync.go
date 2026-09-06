@@ -312,7 +312,7 @@ func decodeSyncJSON(w http.ResponseWriter, r *http.Request, target any) bool {
 
 func safeStoragePath(root, key string) (string, error) {
 	key = strings.TrimSpace(key)
-	if key == "" || filepath.IsAbs(key) || strings.ContainsRune(key, '\x00') || strings.ContainsRune(key, '\\') {
+	if key == "" || filepath.IsAbs(key) || strings.HasPrefix(key, "/") || strings.ContainsRune(key, '\x00') || strings.ContainsRune(key, '\\') {
 		return "", errors.New("invalid storage key")
 	}
 	clean := filepath.Clean(filepath.FromSlash(key))
