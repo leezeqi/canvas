@@ -1,6 +1,6 @@
 import { Button, Drawer, Input, Segmented, Select, Space } from "antd";
 import { ListPlus, Trash2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { defaultBaseUrlForApiFormat, guessCapability, normalizeChannelModels, type ApiCallFormat, type ChannelModel, type ModelCapability, type ModelChannel } from "@/stores/use-config-store";
@@ -12,6 +12,7 @@ type ScriptTarget = { name: string; capability: ModelCapability; value: string }
 export function ChannelEditorDrawer({ open, channel, onSave, onClose }: { open: boolean; channel: ModelChannel | null; onSave: (channel: ModelChannel) => void; onClose: () => void }) {
     const { t } = useTranslation();
     const [draft, setDraft] = useState<ModelChannel | null>(channel);
+    const editingChannelId = useRef<string | null>(null);
     const [selectOpen, setSelectOpen] = useState(false);
     const [scriptTarget, setScriptTarget] = useState<ScriptTarget | null>(null);
     const apiFormatOptions: Array<{ label: string; value: ApiCallFormat }> = [
@@ -21,7 +22,13 @@ export function ChannelEditorDrawer({ open, channel, onSave, onClose }: { open: 
     const capabilityOptions: Array<{ label: string; value: ModelCapability }> = ["image", "video", "text", "audio"].map((value) => ({ label: t(`config.channelEditor.capabilities.${value}`), value: value as ModelCapability }));
 
     useEffect(() => {
-        if (open && channel) setDraft(channel);
+        if (!open || !channel) {
+            editingChannelId.current = null;
+            return;
+        }
+        if (editingChannelId.current === channel.id) return;
+        editingChannelId.current = channel.id;
+        setDraft(channel);
     }, [open, channel]);
 
     if (!draft) return null;

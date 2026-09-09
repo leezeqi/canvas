@@ -36,6 +36,9 @@ const timers = new Map<SyncDomain, ReturnType<typeof setTimeout>>();
 const versions = new Map<SyncDomain, number>();
 let activeUserId = "";
 let applying = false;
+let applyingConfig = false;
+let configPush = Promise.resolve();
+let configGeneration = 0;
 let running = false;
 let activeSyncController: AbortController | null = null;
 let syncLockHeld = false;
@@ -70,6 +73,7 @@ export function mergeSyncRecords(local: Array<Record<string, unknown>>, remote: 
 }
 
 export async function syncDomainRequest(domain: SyncDomain, payload: SyncDomainPayload, retries = 0, baseData?: unknown): Promise<SyncDomainResponse> {
+    const generation = configGeneration;
     const response = await syncFetch(`/api/sync/domains/${encodeURIComponent(domain)}`, {
         method: "PUT",
         credentials: "include",
@@ -79,6 +83,7 @@ export async function syncDomainRequest(domain: SyncDomain, payload: SyncDomainP
         body: JSON.stringify({ baseVersion: payload.baseVersion, data: payload.data }),
     });
     const body = await readJson(response);
+    if (domain === "config" && generation !== configGeneration) throw new Error("账号配置同步已结束");
     if (response.status === 409 && retries < 3) {
         const remote = normalizeResponse(body, domain);
         const merged = domain === "config" ? mergeConfigPayload(baseData, payload.data, remote.data, [...(payload.tombstones || []), ...(remote.tombstones || [])]) : mergeDomainPayload(payload.data, remote.data, [...(payload.tombstones || []), ...(remote.tombstones || [])]);
@@ -136,12 +141,16 @@ export async function startAccountSync(user: AuthUser) {
 }
 
 async function syncAccountData(user: AuthUser, signal: AbortSignal) {
+    let initialConfig = { config: useConfigStore.getState().config };
     await waitForHydration(signal);
     throwIfSyncAborted(signal);
     const previousAccount = await metadataStore.getItem<string>(STORAGE_KEY);
     throwIfSyncAborted(signal);
     const canMigrate = !previousAccount;
-    if (previousAccount && previousAccount !== user.id) await clearLocalAccountState();
+    if (previousAccount && previousAccount !== user.id) {
+        await clearLocalAccountState();
+        initialConfig = { config: defaultConfig };
+    }
     const state = await getSyncState();
     throwIfSyncAborted(signal);
     const domainData = SYNC_DOMAINS.map((domain) => {
@@ -164,9 +173,10 @@ async function syncAccountData(user: AuthUser, signal: AbortSignal) {
             continue;
         }
         if (mergedRemote) {
+            if (domain === "config") mergedRemote.data = mergeConfigPayload(initialConfig, { config: useConfigStore.getState().config }, remote.data, remote.tombstones || []).data;
             await applyDomain(domain, mergedRemote.data);
             throwIfSyncAborted(signal);
-            await metadataStore.setItem(`${accountStorageKey(user.id, domain)}:snapshot`, mergedRemote.data);
+            await metadataStore.setItem(`${accountStorageKey(user.id, domain)}:snapshot`, domain === "config" ? remote.data : mergedRemote.data);
             if (JSON.stringify(mergedRemote.data) !== JSON.stringify(remote.data)) await pushDomain(domain, mergedRemote.data, remote.version);
             else await syncLocalFiles(mergedRemote.data, remote.files);
         }
@@ -176,6 +186,9 @@ async function syncAccountData(user: AuthUser, signal: AbortSignal) {
     installSubscriptions();
     window.addEventListener("online", compensate);
     document.addEventListener("visibilitychange", compensate);
+    const snapshot = await metadataStore.getItem<{ config?: unknown }>(`${accountStorageKey(user.id, "config")}:snapshot`);
+    throwIfSyncAborted(signal);
+    if (JSON.stringify(useConfigStore.getState().config) !== JSON.stringify(snapshot?.config)) schedule("config");
 }
 
 export async function stopAccountSync() {
@@ -184,6 +197,8 @@ export async function stopAccountSync() {
 }
 
 async function cleanupSyncRuntime(clearLocal: boolean) {
+    configGeneration++;
+    configPush = Promise.resolve();
     subscriptions.splice(0).forEach((unsubscribe) => unsubscribe());
     timers.forEach((timer) => clearTimeout(timer));
     timers.clear();
@@ -247,17 +262,42 @@ async function syncFetch(input: RequestInfo | URL, init: RequestInit = {}) {
 }
 
 async function pushDomain(domain: SyncDomain, data: unknown, baseVersion = versions.get(domain) || 0) {
+    if (domain !== "config") return pushDomainNow(domain, data, baseVersion);
+    const userId = activeUserId;
+    const generation = configGeneration;
+    // Keep config requests in order, independently of other domains sharing the account lock.
+    const pending = configPush.catch(() => undefined).then(async () => {
+        if (!userId || activeUserId !== userId || generation !== configGeneration) return;
+        await pushDomainNow(domain, data, baseVersion);
+    });
+    configPush = pending;
+    return pending;
+}
+
+async function pushDomainNow(domain: SyncDomain, data: unknown, baseVersion: number) {
     if (!activeUserId) return;
+    const generation = configGeneration;
     await withAccountSyncLock(activeUserId, async () => {
         const snapshotKey = `${accountStorageKey(activeUserId, domain)}:snapshot`;
         const previous = await metadataStore.getItem<unknown>(snapshotKey);
+        if (domain === "config") {
+            if (generation !== configGeneration) return;
+            data = { config: useConfigStore.getState().config };
+            baseVersion = versions.get(domain) || 0;
+        }
         const tombstones = deriveTombstones(previous, data);
         const persistedData = attachTombstones(data, tombstones);
         const response = await syncDomainRequest(domain, { baseVersion, data: persistedData, tombstones }, 0, previous);
+        if (domain === "config" && generation !== configGeneration) return;
         versions.set(domain, response.version);
         await metadataStore.setItem(snapshotKey, response.data ?? persistedData);
         await syncLocalFiles(data, response.files);
-        if (response.data != null) await applyDomain(domain, response.data);
+        if (domain === "config" && generation !== configGeneration) return;
+        if (response.data != null) {
+            const merged = domain === "config" ? mergeConfigPayload(data, { config: useConfigStore.getState().config }, response.data, response.tombstones || []).data : response.data;
+            await applyDomain(domain, merged);
+            if (domain === "config" && JSON.stringify(useConfigStore.getState().config) !== JSON.stringify((response.data as { config?: unknown }).config)) schedule("config");
+        }
     });
 }
 
@@ -332,14 +372,16 @@ function installSubscriptions() {
     if (subscriptions.length) return;
     subscriptions.push(useCanvasStore.subscribe(() => schedule("canvas")));
     subscriptions.push(useAssetStore.subscribe(() => schedule("assets")));
-    subscriptions.push(useConfigStore.subscribe(() => schedule("config")));
+    subscriptions.push(useConfigStore.subscribe((state, previous) => {
+        if (state.config !== previous.config) schedule("config");
+    }));
     subscriptions.push(usePromptSourceStore.subscribe(() => schedule("prompt-sources")));
     subscriptions.push(usePluginStore.subscribe(() => schedule("plugins")));
     subscriptions.push(useThemeStore.subscribe(() => schedule("theme")));
 }
 
 function schedule(domain: SyncDomain) {
-    if (!running || applying) return;
+    if (!running || (domain === "config" ? applyingConfig : applying)) return;
     const existing = timers.get(domain);
     if (existing) clearTimeout(existing);
     timers.set(domain, setTimeout(() => {
@@ -372,6 +414,7 @@ async function readDomain(domain: SyncDomain): Promise<unknown> {
 
 async function applyDomain(domain: SyncDomain, data: unknown) {
     applying = true;
+    if (domain === "config") applyingConfig = true;
     try {
         const value = (data || {}) as Record<string, any>;
         if (domain === "canvas" && Array.isArray(value.projects)) useCanvasStore.getState().replaceProjects(value.projects);
@@ -385,7 +428,10 @@ async function applyDomain(domain: SyncDomain, data: unknown) {
             await store.clear();
             await Promise.all(value.logs.map((item: Record<string, unknown>) => typeof item.id === "string" ? store.setItem(item.id, item) : undefined));
         }
-    } finally { applying = false; }
+    } finally {
+        applying = false;
+        if (domain === "config") applyingConfig = false;
+    }
 }
 
 async function hydrateAsset(asset: any) {
