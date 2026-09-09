@@ -1,6 +1,6 @@
 import { App, Button, Checkbox, Input, Modal, Tabs } from "antd";
 import { RefreshCw, Search } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { fetchChannelModels } from "@/services/api/image";
@@ -17,16 +17,30 @@ export function ModelSelectModal({ open, channel, selectedNames, onConfirm, onCl
     const [search, setSearch] = useState("");
     const [manual, setManual] = useState("");
     const [loading, setLoading] = useState(false);
+    const editingChannelId = useRef<string | null>(null);
+    const requestId = useRef(0);
+    const channelId = channel?.id;
 
     useEffect(() => {
-        if (!open) return;
+        if (!open || !channelId) {
+            editingChannelId.current = null;
+            requestId.current += 1;
+            return;
+        }
+        // Parent synchronization can replace selectedNames during the same editing session.
+        if (editingChannelId.current === channelId) return;
+        editingChannelId.current = channelId;
+        requestId.current += 1;
         setExisting(selectedNames);
         setFetched([]);
         setSelected(new Set(selectedNames));
         setActiveTab(selectedNames.length ? "existing" : "new");
         setSearch("");
         setManual("");
-    }, [open, selectedNames]);
+        setLoading(false);
+    }, [open, channelId, selectedNames]);
+
+    useEffect(() => () => { requestId.current += 1; }, []);
 
     const currentList = activeTab === "new" ? fetched : existing;
     const visibleList = useMemo(() => {
@@ -65,16 +79,19 @@ export function ModelSelectModal({ open, channel, selectedNames, onConfirm, onCl
             message.error(t("config.modelSelect.missingConfig"));
             return;
         }
+        const request = ++requestId.current;
         setLoading(true);
         try {
             const models = await fetchChannelModels(channel);
+            if (request !== requestId.current) return;
             setFetched(models);
             setActiveTab("new");
             message.success(t("config.modelSelect.fetched", { count: models.length }));
         } catch (error) {
+            if (request !== requestId.current) return;
             message.error(error instanceof Error ? error.message : t("config.modelSelect.fetchFailed"));
         } finally {
-            setLoading(false);
+            if (request === requestId.current) setLoading(false);
         }
     };
 
