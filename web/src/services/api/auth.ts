@@ -1,74 +1,38 @@
+import { apiGet, apiPost } from "@/services/api/request";
+
+export const AUTH_TOKEN_KEY = "infinite-canvas-auth-token-v1";
+
+export type UserRole = "guest" | "user" | "admin";
+
 export type AuthUser = {
     id: string;
-    email: string;
-    name: string | null;
-    avatarUrl: string | null;
-    provider: string;
+    username: string;
+    displayName: string;
+    avatarUrl: string;
+    role: UserRole;
+    credits: number;
+    createdAt: string;
+    updatedAt: string;
 };
 
-type ApiResponse<T> = {
-    data: T;
+export type AuthSession = {
+    token: string;
+    user: AuthUser;
 };
 
-type ErrorResponse = {
-    error?: {
-        code?: string;
-        message?: string;
-    };
+export type AuthPayload = {
+    username: string;
+    password: string;
 };
 
-export class AuthApiError extends Error {
-    constructor(
-        message: string,
-        readonly status: number,
-    ) {
-        super(message);
-        this.name = "AuthApiError";
-    }
+export async function login(payload: AuthPayload) {
+    return apiPost<AuthSession>("/api/auth/login", payload);
 }
 
-async function authRequest<T>(path: string, init?: RequestInit): Promise<T> {
-    const response = await fetch(`/api/auth${path}`, {
-        ...init,
-        credentials: "include",
-        headers: init?.body ? { "Content-Type": "application/json", ...init.headers } : init?.headers,
-    });
-
-    if (!response.ok) {
-        let detail: ErrorResponse | null = null;
-        try {
-            detail = (await response.json()) as ErrorResponse;
-        } catch {
-            // The status code still provides a stable fallback when the server has no JSON body.
-        }
-        throw new AuthApiError(detail?.error?.message || `请求失败（HTTP ${response.status}）`, response.status);
-    }
-
-    if (response.status === 204) return undefined as T;
-    return (await response.json()) as T;
+export async function register(payload: AuthPayload) {
+    return apiPost<AuthSession>("/api/auth/register", payload);
 }
 
-export async function getSession() {
-    try {
-        return (await authRequest<ApiResponse<AuthUser>>("/session")).data;
-    } catch (error) {
-        if (error instanceof AuthApiError && error.status === 401) return null;
-        throw error;
-    }
-}
-
-export function register(payload: { email: string; password: string; name?: string }) {
-    return authRequest<ApiResponse<AuthUser>>("/register", { method: "POST", body: JSON.stringify(payload) }).then((response) => response.data);
-}
-
-export function login(payload: { email: string; password: string }) {
-    return authRequest<ApiResponse<AuthUser>>("/login", { method: "POST", body: JSON.stringify(payload) }).then((response) => response.data);
-}
-
-export function logout() {
-    return authRequest<void>("/logout", { method: "POST" });
-}
-
-export function exchangeHajimiTicket(ticket: string) {
-    return authRequest<ApiResponse<AuthUser>>("/hajimi/exchange", { method: "POST", body: JSON.stringify({ ticket }) }).then((response) => response.data);
+export async function fetchCurrentUser(token?: string) {
+    return apiGet<AuthUser>("/api/auth/me", undefined, token);
 }

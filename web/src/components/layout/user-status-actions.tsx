@@ -1,13 +1,15 @@
-import type { CSSProperties } from "react";
-import { App, Avatar, Dropdown, Tooltip } from "antd";
-import { Keyboard, LogOut, Puzzle, Settings2 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
-import { useTranslation } from "react-i18next";
+"use client";
+
+import type { CSSProperties, RefObject } from "react";
+import { Avatar, Dropdown, Tooltip } from "antd";
+import { Keyboard, LogOut, Settings2, Shield } from "lucide-react";
+import type { ItemType } from "antd/es/menu/interface";
+import Link from "next/link";
 
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
-import { HajimiLink } from "@/components/layout/hajimi-link";
+import { GitHubLink } from "@/components/layout/github-link";
 import { VersionReleaseModal } from "@/components/layout/version-release-modal";
-import { changeAppLocale, type AppLocale } from "@/i18n";
+import { CreditSymbol } from "@/constant/credits";
 import { cn } from "@/lib/utils";
 import { canvasThemes } from "@/lib/canvas-theme";
 import { useConfigStore } from "@/stores/use-config-store";
@@ -18,105 +20,81 @@ type UserStatusActionsProps = {
     showConfig?: boolean;
     variant?: "default" | "canvas";
     onOpenShortcuts?: () => void;
-    onOpenPlugins?: () => void;
+    accountOpen?: boolean;
+    onAccountOpenChange?: (open: boolean) => void;
+    accountRef?: RefObject<HTMLDivElement | null>;
+    getPopupContainer?: (node: HTMLElement) => HTMLElement;
 };
 
-export function UserStatusActions({ showConfig = true, variant = "default", onOpenShortcuts, onOpenPlugins }: UserStatusActionsProps) {
-    const { message } = App.useApp();
-    const { i18n, t } = useTranslation();
-    const navigate = useNavigate();
+export function UserStatusActions({ showConfig = true, variant = "default", onOpenShortcuts, accountOpen, onAccountOpenChange, accountRef, getPopupContainer }: UserStatusActionsProps) {
     const theme = useThemeStore((state) => state.theme);
     const setTheme = useThemeStore((state) => state.setTheme);
     const user = useUserStore((state) => state.user);
-    const logout = useUserStore((state) => state.logout);
+    const logout = useUserStore((state) => state.clearSession);
     const openConfigDialog = useConfigStore((state) => state.openConfigDialog);
     const canvasTheme = canvasThemes[theme];
-    const naturalIconClass =
-        "inline-flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-stone-600 transition-colors hover:bg-black/5 hover:text-stone-950 dark:text-stone-300 dark:hover:bg-white/10 dark:hover:text-white [&_svg]:size-4";
+    const userName = user?.displayName || user?.username || "";
+    const credits = user?.credits ?? 0;
+    const avatarUrl = user?.avatarUrl?.trim();
+    const avatarText = (userName.trim()[0] || "U").toUpperCase();
+    const naturalIconClass = "inline-flex size-7 shrink-0 items-center justify-center text-stone-600 transition hover:text-stone-950 dark:text-stone-300 dark:hover:text-white [&_svg]:size-4";
     const iconStyle: CSSProperties | undefined = variant === "canvas" ? { color: canvasTheme.node.text } : undefined;
     const versionStyle = iconStyle;
-    const hajimiClassName = "size-7 text-base";
-    const hajimiStyle = iconStyle;
-    const locale = i18n.resolvedLanguage as AppLocale;
-    const nextLocale = locale === "zh-CN" ? "en-US" : "zh-CN";
-    const languageLabel = t("topNav.switchLanguage", { language: t(nextLocale === "zh-CN" ? "locale.zhCN" : "locale.enUS") });
-    const userLabel = user?.name?.trim() || user?.email || t("auth.account");
-    const userInitial = userLabel.slice(0, 1).toUpperCase();
-
-    const handleLogout = async () => {
-        try {
-            await logout();
-            navigate("/login", { replace: true });
-        } catch (error) {
-            message.error(error instanceof Error ? error.message : t("auth.logoutFailed"));
-        }
-    };
+    const gitHubClassName = "size-7 text-base";
+    const gitHubStyle = iconStyle;
+    const avatarStyle: CSSProperties | undefined = variant === "canvas" ? { borderColor: canvasTheme.toolbar.border, color: canvasTheme.node.text, background: "transparent" } : undefined;
+    const menuItems: ItemType[] = [
+        { key: "user", disabled: true, label: <span className="font-medium text-current">{userName}</span> },
+        ...(user?.role === "admin" ? [{ key: "admin", icon: <Shield className="size-4" />, label: <Link href="/admin">管理后台</Link> }] : []),
+        ...(onOpenShortcuts ? [{ key: "shortcuts", icon: <Keyboard className="size-4" />, label: "快捷键", onClick: onOpenShortcuts }] : []),
+        { type: "divider" },
+        { key: "logout", icon: <LogOut className="size-4" />, label: "退出登录", onClick: logout },
+    ];
 
     return (
         <div className="inline-flex shrink-0 items-center gap-1">
-            {onOpenPlugins ? (
-                <button type="button" className={naturalIconClass} style={iconStyle} onClick={onOpenPlugins} aria-label={t("topNav.plugins")} title={t("topNav.plugins")}>
-                    <Puzzle className="size-4" />
-                </button>
-            ) : null}
             {showConfig ? (
-                <button type="button" className={naturalIconClass} style={iconStyle} onClick={() => openConfigDialog(false)} aria-label={t("navigation.config")} title={t("navigation.config")}>
+                <button type="button" className={naturalIconClass} style={iconStyle} onClick={() => openConfigDialog(false)} aria-label="配置" title="配置">
                     <Settings2 className="size-4" />
                 </button>
             ) : null}
-            <Tooltip title={languageLabel} mouseEnterDelay={0.2}>
-                <button type="button" className={`${naturalIconClass} text-[11px] font-semibold tracking-tight`} style={iconStyle} onClick={() => void changeAppLocale(nextLocale)} aria-label={languageLabel}>
-                    {locale === "zh-CN" ? "中" : "EN"}
-                </button>
-            </Tooltip>
-            <AnimatedThemeToggler
-                theme={theme}
-                onThemeChange={setTheme}
-                className={naturalIconClass}
-                style={iconStyle}
-                aria-label={t(theme === "dark" ? "topNav.lightTheme" : "topNav.darkTheme")}
-                title={t(theme === "dark" ? "topNav.lightTheme" : "topNav.darkTheme")}
-            />
+            <AnimatedThemeToggler theme={theme} onThemeChange={setTheme} className={naturalIconClass} style={iconStyle} aria-label={theme === "dark" ? "切换到浅色主题" : "切换到深色主题"} title={theme === "dark" ? "切换到浅色主题" : "切换到深色主题"} />
             <VersionReleaseModal style={versionStyle} />
-            <HajimiLink className={cn("bg-transparent hover:bg-transparent dark:hover:bg-transparent", hajimiClassName)} style={hajimiStyle} />
-            {user ? (
-                <Dropdown
-                    trigger={["click"]}
-                    placement="bottomRight"
-                    menu={{
-                        items: [
-                            {
-                                key: "identity",
-                                disabled: true,
-                                label: (
-                                    <div className="min-w-44 py-1">
-                                        <div className="truncate text-sm font-medium text-stone-900 dark:text-stone-100">{user.name || user.email}</div>
-                                        <div className="mt-0.5 truncate text-xs text-stone-500 dark:text-stone-400">{user.email}</div>
-                                        <div className="mt-1 text-xs text-stone-400">{t(user.provider === "hajimi" ? "auth.providerHajimi" : "auth.providerEmail")}</div>
-                                    </div>
-                                ),
-                            },
-                            { type: "divider" },
-                            { key: "logout", icon: <LogOut className="size-4" />, label: t("auth.logout"), onClick: () => void handleLogout() },
-                        ],
-                    }}
-                >
-                    <button type="button" className="ml-0.5 grid size-7 shrink-0 place-items-center rounded-full transition hover:opacity-75" aria-label={t("auth.accountMenu")} title={userLabel}>
-                        <Avatar
-                            size={28}
-                            src={user.avatarUrl || undefined}
-                            className="!bg-stone-900 !text-xs !text-white dark:!bg-stone-100 dark:!text-stone-900"
-                            style={variant === "canvas" ? { border: `1px solid ${canvasTheme.toolbar.border}` } : undefined}
-                        >
-                            {userInitial}
-                        </Avatar>
-                    </button>
-                </Dropdown>
+            <GitHubLink className={cn("bg-transparent hover:bg-transparent dark:hover:bg-transparent", gitHubClassName)} style={gitHubStyle} />
+            {variant === "canvas" && user ? (
+                <Tooltip title="当前算力点余额" placement="bottom">
+                    <div className="flex h-8 shrink-0 items-center gap-1.5 px-1.5 text-xs font-medium tabular-nums opacity-75 transition hover:opacity-100" style={{ color: canvasTheme.node.text }}>
+                        <CreditSymbol className="text-sm leading-none" />
+                        <span>{credits.toLocaleString()}</span>
+                    </div>
+                </Tooltip>
             ) : null}
-            {onOpenShortcuts ? (
-                <button type="button" className={naturalIconClass} style={iconStyle} onClick={onOpenShortcuts} aria-label={t("topNav.shortcuts")} title={t("topNav.shortcuts")}>
+            {!user && onOpenShortcuts ? (
+                <button type="button" className={naturalIconClass} style={iconStyle} onClick={onOpenShortcuts} aria-label="快捷键" title="快捷键">
                     <Keyboard className="size-4" />
                 </button>
+            ) : null}
+            {!user ? (
+                <Link href="/login" className="px-1.5 text-sm font-medium text-stone-600 underline-offset-4 transition hover:text-stone-950 hover:underline dark:text-stone-300 dark:hover:text-stone-100" style={iconStyle}>
+                    登录
+                </Link>
+            ) : null}
+            {user ? (
+                <div ref={accountRef}>
+                    <Dropdown open={accountOpen} onOpenChange={onAccountOpenChange} trigger={["click"]} placement="bottomRight" getPopupContainer={getPopupContainer} styles={{ root: { minWidth: 150 } }} menu={{ items: menuItems }}>
+                        <button type="button" className="flex size-7 shrink-0 items-center justify-center rounded-full bg-transparent p-0 text-[0] leading-[0] transition" aria-label="账户菜单">
+                            <Avatar
+                                size={24}
+                                src={avatarUrl ? <img src={avatarUrl} alt={userName} referrerPolicy="no-referrer" /> : undefined}
+                                alt={userName}
+                                className="!flex !items-center !justify-center border border-stone-300 bg-transparent text-[11px] font-semibold text-stone-800 transition hover:border-stone-500 hover:text-stone-950 dark:border-stone-700 dark:text-stone-100 dark:hover:border-stone-400 dark:hover:text-white"
+                                style={avatarStyle}
+                            >
+                                {avatarText}
+                            </Avatar>
+                        </button>
+                    </Dropdown>
+                </div>
             ) : null}
         </div>
     );

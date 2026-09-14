@@ -1,30 +1,49 @@
+"use client";
+
 import { useEffect, useId, useMemo, useState } from "react";
 import { Cpu } from "lucide-react";
-import { useTranslation } from "react-i18next";
 
-import i18n from "@/i18n";
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
+import { useAutoDLWorkflowNames } from "@/hooks/use-autodl-workflow";
 import { cn } from "@/lib/utils";
-import { modelOptionLabel, modelOptionName, selectableModelsByCapability, type AiConfig, type ModelCapability } from "@/stores/use-config-store";
+import { filterModelsByCapability, normalizeLocalChannels, type AiConfig, type ModelCapability } from "@/stores/use-config-store";
 
 type ModelPickerProps = {
     config: AiConfig;
     value?: string;
-    onChange: (model: string) => void;
+    channelId?: string;
     capability?: ModelCapability;
+    onChange: (model: string, channelId?: string) => void;
     className?: string;
     fullWidth?: boolean;
     placeholder?: string;
     onMissingConfig?: () => void;
 };
 
-export function ModelPicker({ config, value, onChange, capability, className, fullWidth = false, placeholder, onMissingConfig }: ModelPickerProps) {
-    const { t } = useTranslation();
+export function ModelPicker({ config, value, channelId, capability, onChange, className, fullWidth = false, placeholder = "选择模型", onMissingConfig }: ModelPickerProps) {
     const pickerId = useId();
     const [open, setOpen] = useState(false);
-    const options = useMemo(() => Array.from(new Set([...(config.channelMode === "local" && !capability ? [value] : []), ...selectableModelsByCapability(config, capability)].filter((model): model is string => Boolean(model)))), [capability, config, value]);
+    const channelOptions = useMemo(() => {
+        const channels =
+            config.channelMode === "remote"
+                ? config.publicChannels.map((channel) => ({ id: channel.id, protocol: channel.protocol, name: channel.name || "云端渠道", baseUrl: channel.baseUrl, models: channel.models }))
+                : normalizeLocalChannels(config).map((channel) => ({ id: channel.id, protocol: channel.protocol, name: channel.name || "本地渠道", baseUrl: channel.baseUrl, models: channel.models }));
+        const models = channels.flatMap((channel) => (channel.models ?? []).map((model) => ({ key: `${channel.id}::${model}`, channelId: channel.id, channelName: channel.name, protocol: channel.protocol, baseUrl: channel.baseUrl, model })));
+        if (!capability) return models;
+        return models.filter((item) => filterModelsByCapability([item.model], capability, item.protocol || "").length > 0);
+    }, [capability, config]);
+    const modelLabel = useAutoDLWorkflowNames(channelOptions);
+    const currentOption = useMemo(() => {
+        if (!value) return undefined;
+        return channelOptions.find((item) => item.model === value && item.channelId === channelId) || channelOptions.find((item) => item.model === value);
+    }, [channelId, channelOptions, value]);
+    const options = channelOptions;
     const current = value || "";
-    const pickerPlaceholder = placeholder || t("settingsPanels.model.select");
+    const currentValue = current && currentOption ? currentOption.key : "";
+
+    useEffect(() => {
+        if (value && currentOption?.channelId && channelId !== currentOption.channelId) onChange(value, currentOption.channelId);
+    }, [channelId, currentOption?.channelId, onChange, value]);
 
     useEffect(() => {
         const closeOtherPicker = (event: Event) => {
@@ -37,13 +56,19 @@ export function ModelPicker({ config, value, onChange, capability, className, fu
     return (
         <Select
             open={open}
-            value={current}
+            value={current ? currentValue : ""}
             onOpenChange={(nextOpen) => {
-                if (nextOpen && !options.length && config.channelMode === "local") onMissingConfig?.();
+                if (nextOpen && !options.length && config.channelMode === "local") {
+                    onMissingConfig?.();
+                    return;
+                }
                 if (nextOpen) window.dispatchEvent(new CustomEvent("model-picker-open", { detail: pickerId }));
                 setOpen(nextOpen);
             }}
-            onValueChange={onChange}
+            onValueChange={(nextValue) => {
+                const option = options.find((item) => item.key === nextValue);
+                if (option) onChange(option.model, option.channelId);
+            }}
         >
             <SelectTrigger
                 className={cn(
@@ -54,10 +79,10 @@ export function ModelPicker({ config, value, onChange, capability, className, fu
                 )}
                 onMouseDown={(event) => event.stopPropagation()}
                 onPointerDown={(event) => event.stopPropagation()}
-                title={current ? modelOptionLabel(config, current) : pickerPlaceholder}
+                title={current || placeholder}
             >
                 <ModelIcon model={current} />
-                <span className="canvas-model-picker-text min-w-0 flex-1 truncate text-left">{current ? modelOptionLabel(config, current) : pickerPlaceholder}</span>
+                <span className="canvas-model-picker-text min-w-0 flex-1 truncate text-left">{modelLabel(current, currentOption) || placeholder}</span>
             </SelectTrigger>
             <SelectContent
                 data-canvas-no-zoom
@@ -70,14 +95,14 @@ export function ModelPicker({ config, value, onChange, capability, className, fu
                 onMouseDown={(event) => event.stopPropagation()}
             >
                 {options.length ? (
-                    options.map((model) => (
-                        <SelectItem key={model} value={model} textValue={modelOptionLabel(config, model)}>
-                            <ModelLabel config={config} model={model} />
+                    options.map((option) => (
+                        <SelectItem key={option.key} value={option.key} textValue={`${modelLabel(option.model, option)} ${option.model} ${option.channelName}`}>
+                            <ModelLabel model={option.model} label={modelLabel(option.model, option)} channelName={option.channelName} />
                         </SelectItem>
                     ))
                 ) : (
                     <SelectItem value="__empty__" disabled>
-                        {emptyModelLabel(config, capability)}
+                        {config.channelMode === "remote" ? "暂无可用模型" : "请先到配置里拉取模型列表"}
                     </SelectItem>
                 )}
             </SelectContent>
@@ -85,23 +110,18 @@ export function ModelPicker({ config, value, onChange, capability, className, fu
     );
 }
 
-function emptyModelLabel(config: AiConfig, capability?: ModelCapability) {
-    const label = capability ? i18n.t(`settingsPanels.model.capabilities.${capability}`) : "";
-    if (capability && config.models.length) return i18n.t("settingsPanels.model.assign", { capability: label });
-    return config.models.length ? i18n.t("settingsPanels.model.noMatch", { capability: label }) : i18n.t("settingsPanels.model.addFirst");
-}
-
-function ModelLabel({ config, model }: { config: AiConfig; model: string }) {
+function ModelLabel({ model, label, channelName }: { model: string; label?: string; channelName?: string }) {
     return (
         <span className="flex min-w-0 items-center gap-2">
             <ModelIcon model={model} />
-            <span className="truncate">{modelOptionLabel(config, model)}</span>
+            <span className="truncate" title={model}>{label || model}</span>
+            {channelName ? <span className="ml-auto max-w-24 shrink-0 truncate text-xs opacity-50">{channelName}</span> : null}
         </span>
     );
 }
 
 function ModelIcon({ model }: { model: string }) {
-    const icon = resolveModelIcon(modelOptionName(model));
+    const icon = resolveModelIcon(model);
     return icon ? <img src={icon} alt="" className="size-4 shrink-0 dark:invert" /> : <Cpu className="size-4 shrink-0 opacity-70" />;
 }
 

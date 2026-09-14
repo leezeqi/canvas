@@ -1,76 +1,78 @@
+"use client";
+
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 
-import * as authApi from "@/services/api/auth";
-import type { AuthUser } from "@/services/api/auth";
-
-export type AuthStatus = "idle" | "loading" | "authenticated" | "anonymous" | "error";
+import { AUTH_TOKEN_KEY, fetchCurrentUser, login, register, type AuthPayload, type AuthUser } from "@/services/api/auth";
 
 type UserStore = {
+    token: string;
     user: AuthUser | null;
-    status: AuthStatus;
-    restoreSession: (force?: boolean) => Promise<AuthUser | null>;
-    login: (payload: { email: string; password: string }) => Promise<AuthUser>;
-    register: (payload: { email: string; password: string; name?: string }) => Promise<AuthUser>;
-    exchangeHajimi: (ticket: string) => Promise<AuthUser>;
-    logout: () => Promise<void>;
+    isReady: boolean;
+    isLoading: boolean;
+    setSession: (token: string, user: AuthUser) => void;
     clearSession: () => void;
+    hydrateUser: () => Promise<void>;
+    login: (payload: AuthPayload) => Promise<AuthUser>;
+    register: (payload: AuthPayload) => Promise<AuthUser>;
 };
 
-let restoreRequest: Promise<AuthUser | null> | null = null;
-const exchangeRequests = new Map<string, Promise<AuthUser>>();
-
-export const useUserStore = create<UserStore>()((set, get) => ({
-    user: null,
-    status: "idle",
-    restoreSession: async (force = false) => {
-        const current = get();
-        if (!force && current.status === "authenticated") return current.user;
-        if (!force && current.status === "anonymous") return null;
-        if (restoreRequest) return restoreRequest;
-
-        set({ status: "loading" });
-        restoreRequest = authApi
-            .getSession()
-            .then((user) => {
-                set({ user, status: user ? "authenticated" : "anonymous" });
-                return user;
-            })
-            .catch((error) => {
-                set({ user: null, status: "error" });
-                throw error;
-            })
-            .finally(() => {
-                restoreRequest = null;
-            });
-        return restoreRequest;
-    },
-    login: async (payload) => {
-        const user = await authApi.login(payload);
-        set({ user, status: "authenticated" });
-        return user;
-    },
-    register: async (payload) => {
-        const user = await authApi.register(payload);
-        set({ user, status: "authenticated" });
-        return user;
-    },
-    exchangeHajimi: (ticket) => {
-        const existing = exchangeRequests.get(ticket);
-        if (existing) return existing;
-
-        const request = authApi
-            .exchangeHajimiTicket(ticket)
-            .then((user) => {
-                set({ user, status: "authenticated" });
-                return user;
-            })
-            .finally(() => exchangeRequests.delete(ticket));
-        exchangeRequests.set(ticket, request);
-        return request;
-    },
-    logout: async () => {
-        await authApi.logout();
-        set({ user: null, status: "anonymous" });
-    },
-    clearSession: () => set({ user: null, status: "anonymous" }),
-}));
+export const useUserStore = create<UserStore>()(
+    persist(
+        (set, get) => ({
+            token: "",
+            user: null,
+            isReady: false,
+            isLoading: false,
+            setSession: (token, user) => set({ token, user, isReady: true }),
+            clearSession: () => set({ token: "", user: null, isReady: true }),
+            hydrateUser: async () => {
+                const token = get().token;
+                if (!token) {
+                    set({ user: null, isReady: true });
+                    return;
+                }
+                set({ isLoading: true });
+                try {
+                    const user = await fetchCurrentUser(token);
+                    if (user.role === "guest") {
+                        set({ token: "", user: null, isReady: true, isLoading: false });
+                        return;
+                    }
+                    set({ user, isReady: true, isLoading: false });
+                } catch {
+                    set({ token: "", user: null, isReady: true, isLoading: false });
+                }
+            },
+            login: async (payload) => {
+                set({ isLoading: true });
+                try {
+                    const session = await login(payload);
+                    set({ token: session.token, user: session.user, isReady: true, isLoading: false });
+                    return session.user;
+                } catch (error) {
+                    set({ isLoading: false });
+                    throw error;
+                }
+            },
+            register: async (payload) => {
+                set({ isLoading: true });
+                try {
+                    const session = await register(payload);
+                    set({ token: session.token, user: session.user, isReady: true, isLoading: false });
+                    return session.user;
+                } catch (error) {
+                    set({ isLoading: false });
+                    throw error;
+                }
+            },
+        }),
+        {
+            name: AUTH_TOKEN_KEY,
+            partialize: (state) => ({ token: state.token }),
+            onRehydrateStorage: () => (state) => {
+                if (state) state.isReady = false;
+            },
+        },
+    ),
+);
