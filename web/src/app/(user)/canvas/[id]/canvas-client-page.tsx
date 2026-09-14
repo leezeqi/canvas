@@ -4390,7 +4390,9 @@ function InfiniteCanvasPage({ projectId }: { projectId: string }) {
                             disabled={trimmingAudio || audioTrimDuration < 0.5}
                             ariaLabelForHandle={["截取开始时间", "截取结束时间"]}
                             tooltip={{ formatter: (value) => `${(value ?? 0).toFixed(2)} 秒` }}
-                            onChange={([start, end]) => {
+                            onChange={(value: number | number[]) => {
+                                if (!Array.isArray(value)) return;
+                                const [start, end] = value;
                                 if (Math.round((end - start) * 100) < 50) return;
                                 audioTrimRef.current?.pause();
                                 if (audioTrimRef.current) audioTrimRef.current.currentTime = start;

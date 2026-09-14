@@ -13,7 +13,8 @@ export const modelChannelProtocols = [
 
 export type ModelChannelProtocol = (typeof modelChannelProtocols)[number]["value"];
 export type DirectAIProvider = Extract<(typeof modelChannelProtocols)[number], { directRequestPlan: true }>["value"];
-export const modelChannelProtocolOptions = modelChannelProtocols.map(({ value, label }) => ({ label, value }));
+const hiddenModelChannelProtocols: ReadonlySet<string> = new Set(["metaso", "apimart", "88api", "kie", "autodl"]);
+export const modelChannelProtocolOptions = modelChannelProtocols.filter(({ value }) => !hiddenModelChannelProtocols.has(value)).map(({ value, label }) => ({ label, value }));
 export const modelChannelDefaultBaseUrls = Object.fromEntries(modelChannelProtocols.map(({ value, baseUrl }) => [value, baseUrl])) as Record<ModelChannelProtocol, string>;
 export const modelChannelApiKeyUrls = Object.fromEntries(modelChannelProtocols.flatMap((protocol) => "apiKeyUrl" in protocol ? [[protocol.value, protocol.apiKeyUrl]] : [])) as Partial<Record<ModelChannelProtocol, string>>;
 
