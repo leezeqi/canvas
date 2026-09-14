@@ -55,7 +55,8 @@ export function CanvasAssistantComposer({
     onOpenAssets,
     onPasteImage,
 }: CanvasAssistantComposerProps) {
-    const theme = canvasThemes[useThemeStore((state) => state.theme)];
+    const colorTheme = useThemeStore((state) => state.theme);
+    const theme = canvasThemes[colorTheme];
     const effectiveConfig = useEffectiveConfig();
     const reasoningEnabled = agentConfig.textReasoningEnabled === true;
     const imageConfig = useMemo(() => ({ ...effectiveConfig, quality: agentConfig.imageQuality, size: agentConfig.imageSize }), [agentConfig.imageQuality, agentConfig.imageSize, effectiveConfig]);
@@ -72,7 +73,14 @@ export function CanvasAssistantComposer({
 
     return (
         <div className="px-2 pb-2" onWheelCapture={(event) => event.stopPropagation()}>
-            <div className="rounded-2xl border px-3 pb-3 pt-3" style={{ background: theme.toolbar.panel, borderColor: theme.node.stroke }}>
+            <div
+                className="rounded-2xl border px-3 pb-3 pt-3 backdrop-blur-md"
+                style={{
+                    background: theme.toolbar.panel,
+                    borderColor: theme.toolbar.border,
+                    boxShadow: colorTheme === "dark" ? "0 18px 46px rgba(0,0,0,.24), inset 0 1px rgba(255,255,255,.06)" : "0 16px 38px rgba(52,65,94,.10), inset 0 1px rgba(255,255,255,.72)",
+                }}
+            >
                 <CanvasPromptChipInput
                     value={prompt}
                     references={promptReferences}
@@ -88,7 +96,7 @@ export function CanvasAssistantComposer({
                     placeholder="描述创作目标，或让我继续操作画布"
                     placeholderClassName="!left-1 !top-0"
                 />
-                <div className="@container mt-2 flex items-center justify-between gap-2">
+                <div className="canvas-composer-tools @container mt-2 flex items-center justify-between gap-2">
                     <div className="flex min-w-0 flex-1 items-center gap-1">
                         <Dropdown
                             trigger={["click"]}
@@ -109,7 +117,7 @@ export function CanvasAssistantComposer({
                             placement="topLeft"
                             showCount={false}
                             buttonIcon={<ImageIcon className="size-3.5" />}
-                            buttonClassName="!h-8 !max-w-[116px] !justify-start !rounded-full !px-2.5"
+                            buttonClassName="canvas-composer-icon !h-8 !max-w-[116px] !justify-start !rounded-full !px-2.5"
                             onConfigChange={(key, value) => {
                                 if (key === "quality") onAgentConfigChange({ imageQuality: value });
                                 else if (key === "size") onAgentConfigChange({ imageSize: value });
@@ -120,7 +128,7 @@ export function CanvasAssistantComposer({
                             placement="topLeft"
                             visualOnly
                             buttonIcon={<Video className="size-3.5" />}
-                            buttonClassName="!h-8 !max-w-[124px] !justify-start !rounded-full !px-2.5"
+                            buttonClassName="canvas-composer-icon !h-8 !max-w-[124px] !justify-start !rounded-full !px-2.5"
                             onConfigChange={(key, value) => {
                                 if (key === "vquality") onAgentConfigChange({ videoQuality: value });
                                 else if (key === "size") onAgentConfigChange({ videoSize: value });
@@ -132,7 +140,7 @@ export function CanvasAssistantComposer({
                         <Button
                             type="text"
                             shape="circle"
-                            className="!h-8 !w-8 !min-w-8"
+                            className="!h-8 !w-8 !min-w-8 !transition-colors"
                             style={{ color: theme.node.text, background: reasoningEnabled ? theme.toolbar.activeBg : undefined }}
                             icon={<Brain className="size-4" />}
                             title={reasoningEnabled ? "推理已开启" : "推理已关闭"}
@@ -144,7 +152,7 @@ export function CanvasAssistantComposer({
                         <Button
                             type="primary"
                             shape="circle"
-                            className="!size-10 !min-w-10"
+                            className="!size-10 !min-w-10 !border-0 !bg-violet-600 !shadow-[0_8px_22px_rgba(124,58,237,.28)] hover:!bg-violet-500 disabled:!bg-violet-600"
                             disabled={!isRunning && !prompt.trim()}
                             onClick={() => (isRunning ? onStop?.() : void submit())}
                             aria-label={isRunning ? "停止" : "发送"}

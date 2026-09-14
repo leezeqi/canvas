@@ -13,8 +13,8 @@ export type HomeBanner = {
     alt: string;
 };
 
-const BANNER_WIDTH = "min(calc(100vw - 2rem), clamp(420px, 34vw, 520px))";
-const SIDE_BANNER_WIDTH = "min(calc(94vw - 1.88rem), clamp(394.8px, 31.96vw, 488.8px))";
+const BANNER_WIDTH = "min(calc(100vw - 2rem), clamp(420px, 38vw, 560px))";
+const SIDE_BANNER_WIDTH = "min(calc(94vw - 1.88rem), clamp(394.8px, 35.72vw, 526.4px))";
 
 const getBannerAngle = (offset: number) => offset === 0 ? 0 : offset < 0 ? 12 : -12;
 const getBannerTransform = (offset: number) => `perspective(900px) rotateY(${getBannerAngle(offset)}deg)`;
@@ -151,7 +151,7 @@ export const HomeBannerCarousel = memo(function HomeBannerCarousel({ banners }: 
                     }
                 }
             `}</style>
-            <div ref={carouselRef} className="relative h-[calc((100vw-2rem)*.5625+56px)] w-screen overflow-hidden sm:h-[350px] sm:overflow-visible">
+            <div ref={carouselRef} className="relative left-1/2 h-[calc((100vw-2rem)*.5625+56px)] w-screen -translate-x-1/2 overflow-hidden sm:h-[340px] sm:overflow-visible">
                 {visibleBanners.map(({ banner, index, offset, position }) => {
                     const active = offset === 0;
                     return (
@@ -161,7 +161,8 @@ export const HomeBannerCarousel = memo(function HomeBannerCarousel({ banners }: 
                             data-banner-card
                             data-banner-offset={offset}
                             className={cn(
-                                "home-banner-carousel-card absolute top-1/2 aspect-video rounded-2xl outline-none transition-[left,width,transform] duration-300 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-white/35",
+                                "home-banner-carousel-card group absolute top-1/2 aspect-video rounded-2xl outline-none transition-[left,width,transform,opacity] duration-300 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/70",
+                                active ? "opacity-100" : "opacity-55 hover:opacity-80",
                                 (banner.linkUrl || banner.videoUrl) && "cursor-pointer",
                             )}
                             style={{
@@ -184,17 +185,19 @@ export const HomeBannerCarousel = memo(function HomeBannerCarousel({ banners }: 
                             <span
                                 aria-hidden
                                 className={cn(
-                                    "pointer-events-none absolute inset-0 rounded-2xl",
-                                    active ? "shadow-[0_18px_44px_rgba(0,0,0,0.5)]" : "shadow-[0_8px_20px_rgba(0,0,0,0.2)]",
+                                    "pointer-events-none absolute -inset-1 rounded-[20px] border",
+                                    active
+                                        ? "border-violet-400/25 bg-violet-500/10 shadow-[0_24px_70px_rgba(124,58,237,.22),0_12px_34px_rgba(37,99,235,.14)] backdrop-blur-xl dark:border-white/10 dark:shadow-[0_26px_80px_rgba(0,0,0,.50),0_0_36px_rgba(139,92,246,.18)]"
+                                        : "border-slate-900/5 bg-white/20 shadow-[0_12px_30px_rgba(31,38,58,.10)] dark:border-white/5 dark:bg-white/5 dark:shadow-[0_12px_30px_rgba(0,0,0,.25)]",
                                 )}
                             />
                             <span
-                                className="relative isolate block size-full overflow-hidden rounded-2xl bg-stone-100 dark:bg-stone-900"
+                                className="relative isolate block size-full overflow-hidden rounded-2xl border border-white/20 bg-slate-100 dark:border-white/10 dark:bg-slate-900"
                             >
                                 <AnimatedBannerImage src={banner.imageUrl} alt={banner.alt} />
                                 {active && banner.videoUrl ? (
-                                    <span className="absolute inset-0 grid place-items-center bg-black/10">
-                                        <span className="grid size-12 place-items-center rounded-full bg-black/55 text-white backdrop-blur">
+                                    <span className="absolute inset-0 grid place-items-center bg-black/15">
+                                        <span className="grid size-12 place-items-center rounded-full border border-white/20 bg-slate-950/55 text-white shadow-[0_12px_36px_rgba(0,0,0,.32)] backdrop-blur-xl transition group-hover:scale-105">
                                             <Play className="ml-0.5 size-5 fill-current" />
                                         </span>
                                     </span>
@@ -203,12 +206,12 @@ export const HomeBannerCarousel = memo(function HomeBannerCarousel({ banners }: 
                         </button>
                     );
                 })}
-                <Button type="text" shape="circle" className="!absolute !top-1/2 !z-10 !hidden !-translate-y-1/2 !bg-black/40 !text-white sm:!inline-flex" style={{ left: "calc(50% - min(742px, calc(50vw - 32px)))" }} icon={<ChevronLeft className="size-5" />} onClick={() => changeBanner(-1)} aria-label="上一张" />
-                <Button type="text" shape="circle" className="!absolute !top-1/2 !z-10 !hidden !-translate-y-1/2 !bg-black/40 !text-white sm:!inline-flex" style={{ right: "calc(50% - min(742px, calc(50vw - 32px)))" }} icon={<ChevronRight className="size-5" />} onClick={() => changeBanner(1)} aria-label="下一张" />
+                <Button type="text" shape="circle" className="aurora-glass !absolute !top-1/2 !z-10 !hidden !-translate-y-1/2 !border !text-slate-700 hover:!text-violet-600 sm:!inline-flex dark:!text-slate-200 dark:hover:!text-violet-300" style={{ left: "calc(50% - min(742px, calc(50vw - 32px)))" }} icon={<ChevronLeft className="size-5" />} onClick={() => changeBanner(-1)} aria-label="上一张" />
+                <Button type="text" shape="circle" className="aurora-glass !absolute !top-1/2 !z-10 !hidden !-translate-y-1/2 !border !text-slate-700 hover:!text-violet-600 sm:!inline-flex dark:!text-slate-200 dark:hover:!text-violet-300" style={{ right: "calc(50% - min(742px, calc(50vw - 32px)))" }} icon={<ChevronRight className="size-5" />} onClick={() => changeBanner(1)} aria-label="下一张" />
             </div>
-            <div className="mt-1 flex items-center justify-center gap-2" aria-label="Banner 切换">
+            <div className="mt-2 flex h-5 items-center justify-center gap-2" aria-label="轮播图切换">
                 {banners.map((banner, index) => (
-                    <button key={banner.imageUrl} type="button" className={cn("h-1.5 rounded-full transition-all", index === activeIndex ? "w-6 bg-stone-700 dark:bg-stone-200" : "w-2 bg-stone-300 dark:bg-stone-700")} onClick={() => selectBanner(index)} aria-label={"切换到第 " + (index + 1) + " 张"} />
+                    <button key={banner.imageUrl} type="button" className={cn("h-1.5 rounded-full transition-all duration-300", index === activeIndex ? "w-7 bg-violet-500 shadow-[0_0_12px_rgba(139,92,246,.55)]" : "w-1.5 bg-slate-300 hover:bg-violet-300 dark:bg-slate-700 dark:hover:bg-violet-500/70")} onClick={() => selectBanner(index)} aria-label={"切换到第 " + (index + 1) + " 张"} aria-current={index === activeIndex ? "true" : undefined} />
                 ))}
             </div>
             <Modal open={Boolean(activeVideoUrl)} footer={null} centered width={960} destroyOnHidden onCancel={() => setActiveVideoUrl("")}>

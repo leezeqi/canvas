@@ -115,17 +115,17 @@ export default function AssetLibraryPage() {
 
     return (
         <div className="flex h-full flex-col overflow-hidden bg-background text-stone-800 dark:text-stone-100">
-            <main className="min-h-0 flex-1 overflow-y-auto bg-background bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] px-6 py-8 [background-size:16px_16px] dark:bg-[radial-gradient(rgba(245,245,244,.16)_1px,transparent_1px)]">
+            <main className="min-h-0 flex-1 overflow-y-auto bg-[linear-gradient(135deg,rgba(139,92,246,0.11),transparent_30%,transparent_72%,rgba(14,165,233,0.08))] px-4 py-8 sm:px-6 dark:bg-[linear-gradient(135deg,rgba(139,92,246,0.16),transparent_32%,transparent_70%,rgba(14,165,233,0.08))]">
                 <div className="pb-8">
                     <div className="mx-auto max-w-5xl text-center">
-                        <h1 className="text-4xl font-semibold tracking-tight text-stone-950 dark:text-stone-100">素材库</h1>
+                        <h1 className="text-4xl font-semibold text-stone-950 dark:text-stone-100">素材库</h1>
                         <p className="mt-3 text-sm text-stone-500 dark:text-stone-400">挑选团队素材，加入我的素材后继续编辑和使用。</p>
                     </div>
                     <div className="mx-auto mt-8 w-full max-w-2xl">
                         <Input
                             size="large"
-                            className="w-full"
-                            prefix={<Search className="size-4 text-stone-400" />}
+                            className="w-full !border-white/70 !bg-white/65 !shadow-[0_16px_45px_rgba(76,29,149,0.08)] backdrop-blur-xl dark:!border-white/10 dark:!bg-stone-950/55"
+                            prefix={<Search className="size-4 text-violet-500" />}
                             value={keyword}
                             placeholder="搜索标题、内容、分类或标签"
                             onChange={(event) => {
@@ -134,7 +134,7 @@ export default function AssetLibraryPage() {
                             }}
                         />
                     </div>
-                    <div className="mx-auto mt-6 max-w-6xl space-y-3">
+                    <div className="mx-auto mt-6 max-w-6xl space-y-3 rounded-lg border border-white/60 bg-white/45 p-4 shadow-[0_18px_55px_rgba(76,29,149,0.07)] backdrop-blur-xl dark:border-white/10 dark:bg-stone-950/45">
                         <div className="grid gap-2 sm:grid-cols-[56px_minmax(0,1fr)] sm:items-center">
                             <div className="text-xs font-medium text-stone-500 dark:text-stone-400">类型</div>
                             <div className="flex flex-wrap gap-2">
@@ -271,14 +271,14 @@ function LibraryCard({ asset, onOpen, onAdd }: { asset: AssetLibraryItem; onOpen
     return (
         <Card
             hoverable
-            className="overflow-hidden"
+            className="overflow-hidden !border-white/65 !bg-white/55 !shadow-[0_16px_48px_rgba(76,29,149,0.08)] backdrop-blur-xl transition-transform duration-200 hover:-translate-y-0.5 dark:!border-white/10 dark:!bg-stone-950/55"
             styles={{ body: { padding: 0 } }}
             cover={
                 <button type="button" className="block w-full text-left" onClick={onOpen}>
                     {cover ? (
                         <img src={cover} alt={asset.title} className="aspect-[4/3] w-full object-cover" />
                     ) : (
-                        <div className="flex aspect-[4/3] items-center justify-center bg-stone-100 p-5 text-center text-sm leading-6 text-stone-600 dark:bg-stone-900 dark:text-stone-300">{asset.content || "暂无封面"}</div>
+                        <div className="flex aspect-[4/3] items-center justify-center bg-violet-50/60 p-5 text-center text-sm leading-6 text-stone-600 dark:bg-violet-950/20 dark:text-stone-300">{asset.content || "暂无封面"}</div>
                     )}
                 </button>
             }

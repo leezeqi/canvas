@@ -85,11 +85,11 @@ function LoginContent() {
     };
 
     return (
-        <main className="flex h-full min-h-0 items-center justify-center overflow-y-auto bg-background bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] px-6 py-10 [background-size:16px_16px] dark:bg-[radial-gradient(rgba(245,245,244,.16)_1px,transparent_1px)]">
-            <section className="w-full max-w-[420px]">
+        <main className="flex h-full min-h-0 items-center justify-center overflow-y-auto bg-background bg-[linear-gradient(135deg,rgba(139,92,246,0.16),transparent_34%,transparent_66%,rgba(14,165,233,0.11))] px-5 py-10 dark:bg-[linear-gradient(135deg,rgba(139,92,246,0.21),transparent_36%,transparent_64%,rgba(14,165,233,0.10))]">
+            <section className="w-full max-w-[420px] rounded-lg border border-white/70 bg-white/58 p-6 shadow-[0_28px_90px_rgba(76,29,149,0.16)] backdrop-blur-2xl sm:p-8 dark:border-white/10 dark:bg-stone-950/58 dark:shadow-[0_28px_90px_rgba(0,0,0,0.38)]">
                 <div className="mb-7 text-center">
                     <span
-                        className="mx-auto mb-4 block size-12 bg-stone-950 dark:bg-stone-100"
+                        className="mx-auto mb-4 block size-12 bg-violet-600 drop-shadow-[0_10px_20px_rgba(124,58,237,0.28)] dark:bg-violet-300"
                         style={{
                             mask: "url(/logo.svg) center / contain no-repeat",
                             WebkitMask: "url(/logo.svg) center / contain no-repeat",

@@ -66,8 +66,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     }
 
     return (
-        <Layout hasSider style={{ height: "100vh", overflow: "hidden", background: antToken.colorBgLayout }}>
-            <Layout.Sider width={adminLayoutStyle.siderWidth} style={{ height: "100vh", overflow: "hidden", background: antToken.colorBgContainer, borderRight: `1px solid ${antToken.colorBorder}` }}>
+        <Layout hasSider className="aurora-admin bg-[linear-gradient(135deg,rgba(139,92,246,0.09),transparent_30%,transparent_76%,rgba(14,165,233,0.06))]" style={{ height: "100vh", overflow: "hidden" }}>
+            <Layout.Sider width={adminLayoutStyle.siderWidth} className="!bg-white/62 backdrop-blur-2xl dark:!bg-stone-950/62" style={{ height: "100vh", overflow: "hidden", borderRight: `1px solid ${antToken.colorBorderSecondary}`, boxShadow: "12px 0 40px rgba(76, 29, 149, 0.06)" }}>
                 <Flex align="center" gap={12} style={{ height: adminLayoutStyle.brandHeight, padding: "0 20px", borderBottom: `1px solid ${antToken.colorBorderSecondary}` }}>
                     <span aria-hidden style={{ display: "inline-block", width: 30, height: 30, background: antToken.colorText, WebkitMask: "url(/logo.svg) center / contain no-repeat", mask: "url(/logo.svg) center / contain no-repeat" }} />
                     <Typography.Text strong style={{ fontSize: 18, letterSpacing: 0 }}>
@@ -88,7 +88,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                         style: adminLayoutStyle.menuItem,
                     }))}
                 />
-                <Flex vertical gap={8} style={{ position: "absolute", bottom: 0, insetInline: 0, padding: 12, borderTop: `1px solid ${antToken.colorBorder}`, background: antToken.colorBgContainer }}>
+                <Flex vertical gap={8} className="bg-white/45 backdrop-blur-xl dark:bg-stone-950/45" style={{ position: "absolute", bottom: 0, insetInline: 0, padding: 12, borderTop: `1px solid ${antToken.colorBorderSecondary}` }}>
                     <Button block icon={<HomeOutlined />} href="/canvas" target="_blank" rel="noreferrer">
                         前往画布
                     </Button>
@@ -97,9 +97,10 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                     </Button>
                 </Flex>
             </Layout.Sider>
-            <Layout style={{ background: antToken.colorBgLayout }}>
+            <Layout className="!bg-transparent">
                 <Layout.Header
-                    style={{ display: "flex", alignItems: "center", justifyContent: "space-between", height: adminLayoutStyle.headerHeight, padding: "0 24px", background: antToken.colorBgContainer, borderBottom: `1px solid ${antToken.colorBorder}` }}
+                    className="!bg-white/55 backdrop-blur-2xl dark:!bg-stone-950/55"
+                    style={{ display: "flex", alignItems: "center", justifyContent: "space-between", height: adminLayoutStyle.headerHeight, padding: "0 24px", borderBottom: `1px solid ${antToken.colorBorderSecondary}` }}
                 >
                     <Typography.Title level={5} style={{ margin: 0 }}>
                         {pageTitle}
@@ -108,7 +109,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                         <UserStatusActions showConfig={false} />
                     </Flex>
                 </Layout.Header>
-                <Layout.Content style={{ minHeight: 0, overflow: "auto" }}>{children}</Layout.Content>
+                <Layout.Content className="bg-transparent" style={{ minHeight: 0, overflow: "auto" }}>{children}</Layout.Content>
             </Layout>
         </Layout>
     );

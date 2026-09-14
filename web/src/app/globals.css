@@ -48,25 +48,25 @@
 }
 
 :root {
-    --radius: 0.625rem;
-    --border: oklch(0.922 0 0);
-    --ring: oklch(0.708 0 0);
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.145 0 0);
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.145 0 0);
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.205 0 0);
-    --primary-foreground: oklch(0.985 0 0);
-    --secondary: oklch(0.97 0 0);
-    --secondary-foreground: oklch(0.205 0 0);
-    --muted: oklch(0.97 0 0);
-    --muted-foreground: oklch(0.556 0 0);
-    --accent: oklch(0.97 0 0);
-    --accent-foreground: oklch(0.205 0 0);
+    --radius: 0.75rem;
+    --border: rgba(45, 55, 72, 0.12);
+    --ring: #8b5cf6;
+    --background: #f7f8fc;
+    --foreground: #172033;
+    --card: rgba(255, 255, 255, 0.82);
+    --card-foreground: #172033;
+    --popover: rgba(255, 255, 255, 0.96);
+    --popover-foreground: #172033;
+    --primary: #7c3aed;
+    --primary-foreground: #ffffff;
+    --secondary: rgba(124, 58, 237, 0.08);
+    --secondary-foreground: #5b21b6;
+    --muted: rgba(100, 116, 139, 0.08);
+    --muted-foreground: #667085;
+    --accent: rgba(124, 58, 237, 0.10);
+    --accent-foreground: #5b21b6;
     --destructive: oklch(0.577 0.245 27.325);
-    --input: oklch(0.922 0 0);
+    --input: rgba(45, 55, 72, 0.14);
     --chart-1: oklch(0.87 0 0);
     --chart-2: oklch(0.556 0 0);
     --chart-3: oklch(0.439 0 0);
@@ -83,24 +83,24 @@
 }
 
 .dark {
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --border: oklch(1 0 0 / 10%);
-    --ring: oklch(0.556 0 0);
-    --card: oklch(0.205 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.205 0 0);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.922 0 0);
-    --primary-foreground: oklch(0.205 0 0);
-    --secondary: oklch(0.269 0 0);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
+    --background: #02040a;
+    --foreground: #f8fafc;
+    --border: rgba(255, 255, 255, 0.09);
+    --ring: #8b5cf6;
+    --card: rgba(10, 15, 28, 0.82);
+    --card-foreground: #f8fafc;
+    --popover: rgba(17, 24, 39, 0.96);
+    --popover-foreground: #f8fafc;
+    --primary: #8b5cf6;
+    --primary-foreground: #ffffff;
+    --secondary: rgba(139, 92, 246, 0.12);
+    --secondary-foreground: #ede9fe;
+    --muted: rgba(148, 163, 184, 0.10);
+    --muted-foreground: #94a3b8;
+    --accent: rgba(139, 92, 246, 0.14);
+    --accent-foreground: #ede9fe;
     --destructive: oklch(0.704 0.191 22.216);
-    --input: oklch(1 0 0 / 15%);
+    --input: rgba(255, 255, 255, 0.12);
     --chart-1: oklch(0.87 0 0);
     --chart-2: oklch(0.556 0 0);
     --chart-3: oklch(0.439 0 0);
@@ -127,6 +127,9 @@
     }
     body {
         @apply bg-background text-foreground;
+        background-image:
+            linear-gradient(128deg, rgba(124, 58, 237, 0.08), transparent 34%, rgba(37, 99, 235, 0.06) 68%, transparent),
+            linear-gradient(312deg, rgba(16, 185, 129, 0.035), transparent 42%);
     }
     textarea {
         resize: none;
@@ -137,6 +140,139 @@
     html {
         @apply font-sans;
     }
+}
+
+@layer components {
+    .aurora-app,
+    .aurora-admin {
+        isolation: isolate;
+        position: relative;
+    }
+
+    .aurora-app::before,
+    .aurora-admin::before {
+        background-image:
+            linear-gradient(118deg, transparent 4%, rgba(139, 92, 246, 0.15) 28%, transparent 48%),
+            linear-gradient(302deg, rgba(16, 185, 129, 0.055), transparent 38%),
+            linear-gradient(34deg, transparent 46%, rgba(59, 130, 246, 0.11) 70%, transparent 90%);
+        content: "";
+        inset: 0;
+        pointer-events: none;
+        position: fixed;
+        z-index: -2;
+    }
+
+    .aurora-app::after,
+    .aurora-admin::after {
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 160 160' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.32'/%3E%3C/svg%3E");
+        content: "";
+        inset: 0;
+        mix-blend-mode: soft-light;
+        opacity: 0.035;
+        pointer-events: none;
+        position: fixed;
+        z-index: 1000;
+    }
+
+    .aurora-glass,
+    .aurora-app .ant-card,
+    .aurora-app .ant-collapse,
+    .aurora-admin .ant-card {
+        backdrop-filter: blur(18px);
+        background: var(--card) !important;
+        border-color: var(--border) !important;
+        box-shadow: 0 18px 48px rgba(31, 38, 58, 0.10);
+    }
+
+    .dark .aurora-glass,
+    .dark .aurora-app .ant-card,
+    .dark .aurora-app .ant-collapse,
+    .dark .aurora-admin .ant-card {
+        box-shadow: 0 18px 48px rgba(0, 0, 0, 0.28), inset 0 1px rgba(255, 255, 255, 0.04);
+    }
+
+    .ant-modal-content,
+    .ant-drawer-content,
+    .ant-dropdown-menu,
+    .ant-popover-inner {
+        backdrop-filter: blur(22px);
+        border: 1px solid var(--border);
+    }
+
+    .ant-modal-content,
+    .ant-drawer-content {
+        box-shadow: 0 28px 80px rgba(31, 38, 58, 0.18) !important;
+    }
+
+    .dark .ant-modal-content,
+    .dark .ant-drawer-content {
+        box-shadow: 0 28px 80px rgba(0, 0, 0, 0.46) !important;
+    }
+
+    .aurora-app .bg-background,
+    .aurora-admin .ant-layout,
+    .aurora-admin .ant-layout-content {
+        background-color: transparent !important;
+    }
+
+    .aurora-app .border-stone-200,
+    .aurora-app .border-stone-300,
+    .dark .aurora-app .dark\:border-stone-700,
+    .dark .aurora-app .dark\:border-stone-800 {
+        border-color: var(--border) !important;
+    }
+
+    .aurora-app .bg-stone-50,
+    .aurora-app .bg-stone-100,
+    .dark .aurora-app .dark\:bg-stone-800,
+    .dark .aurora-app .dark\:bg-stone-900 {
+        background-color: var(--muted) !important;
+    }
+
+    .aurora-title {
+        background: linear-gradient(105deg, #172033 12%, #7c3aed 48%, #2563eb 72%, #172033 92%);
+        background-clip: text;
+        color: transparent;
+    }
+
+    .dark .aurora-title {
+        background-image: linear-gradient(105deg, #f8fafc 12%, #c4b5fd 48%, #93c5fd 72%, #f8fafc 92%);
+    }
+
+    .aurora-composer {
+        box-shadow: 0 24px 70px rgba(124, 58, 237, 0.18), 0 8px 28px rgba(37, 99, 235, 0.10);
+        transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+    }
+
+    .aurora-composer:focus-within {
+        border-color: rgba(139, 92, 246, 0.48) !important;
+        box-shadow: 0 28px 80px rgba(124, 58, 237, 0.25), 0 10px 34px rgba(37, 99, 235, 0.12);
+        transform: translateY(-1px);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .aurora-composer {
+            transition: none;
+        }
+    }
+}
+
+::-webkit-scrollbar {
+    height: 6px;
+    width: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(100, 116, 139, 0.34);
+    border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(124, 58, 237, 0.46);
 }
 
 @layer utilities {

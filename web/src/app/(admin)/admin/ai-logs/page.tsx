@@ -119,9 +119,9 @@ export default function AdminAICallLogsPage() {
     );
 
     return (
-        <main className="p-3 md:p-6">
+        <main className="min-h-full bg-[linear-gradient(135deg,transparent_72%,rgba(139,92,246,0.07))] p-3 md:p-6">
             <Flex vertical gap={16} className="w-full">
-                <Card variant="borderless">
+                <Card variant="borderless" className="!border !border-white/60 !bg-white/58 !shadow-[0_14px_42px_rgba(76,29,149,0.06)] backdrop-blur-xl dark:!border-white/10 dark:!bg-stone-950/52">
                     <Form
                         layout="vertical"
                         onFinish={() => {
@@ -152,7 +152,7 @@ export default function AdminAICallLogsPage() {
                         </div>
                     </Form>
                 </Card>
-                <Card variant="borderless" title={<span>AI 调用日志 <Tag>{total} 条</Tag></span>}>
+                <Card variant="borderless" className="!border !border-white/60 !bg-white/58 !shadow-[0_14px_42px_rgba(76,29,149,0.06)] backdrop-blur-xl dark:!border-white/10 dark:!bg-stone-950/52" title={<span>AI 调用日志 <Tag>{total} 条</Tag></span>}>
                     <Table
                         rowKey="id"
                         size="small"

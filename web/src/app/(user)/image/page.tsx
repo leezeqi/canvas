@@ -1095,7 +1095,7 @@ export default function ImagePage() {
     };
 
     return (
-        <div className="flex h-full flex-col overflow-hidden bg-stone-50 text-stone-900 dark:bg-stone-950 dark:text-stone-100">
+        <div className="flex h-full flex-col overflow-hidden bg-background bg-[linear-gradient(135deg,rgba(139,92,246,0.12),transparent_32%,transparent_72%,rgba(14,165,233,0.08))] text-stone-900 dark:bg-[linear-gradient(135deg,rgba(139,92,246,0.18),transparent_34%,transparent_70%,rgba(14,165,233,0.08))] dark:text-stone-100">
             <main className={`${workbenchLayout === "side" ? "grid grid-cols-1 lg:grid-cols-[420px_minmax(0,1fr)]" : "relative flex flex-col"} min-h-0 flex-1 gap-3 overflow-y-auto p-3 lg:overflow-hidden`}>
                 {workbenchLayout === "side" ? (
                     <>
@@ -1219,7 +1219,7 @@ export default function ImagePage() {
             <button
                 ref={workflowButtonRef}
                 type="button"
-                className="fixed z-50 inline-flex touch-none select-none items-center gap-2 rounded-full border border-sky-300/70 bg-white/90 px-4 py-3 text-sm font-semibold text-stone-950 shadow-[0_18px_50px_rgba(14,165,233,0.28),0_8px_18px_rgba(0,0,0,0.14)] ring-1 ring-white/70 backdrop-blur-xl transition hover:-translate-y-0.5 hover:border-sky-300 hover:bg-white hover:shadow-[0_22px_64px_rgba(14,165,233,0.36),0_10px_22px_rgba(0,0,0,0.18)] dark:border-sky-400/40 dark:bg-stone-900/88 dark:text-stone-100 dark:ring-white/10 dark:hover:bg-stone-900"
+                className="fixed z-50 inline-flex touch-none select-none items-center gap-2 rounded-full border border-violet-300/70 bg-white/78 px-4 py-3 text-sm font-semibold text-stone-950 shadow-[0_18px_50px_rgba(124,58,237,0.24),0_8px_18px_rgba(0,0,0,0.10)] ring-1 ring-white/70 backdrop-blur-xl transition hover:-translate-y-0.5 hover:border-violet-300 hover:bg-white/90 hover:shadow-[0_22px_64px_rgba(124,58,237,0.30),0_10px_22px_rgba(0,0,0,0.14)] dark:border-violet-400/40 dark:bg-stone-950/72 dark:text-stone-100 dark:ring-white/10 dark:hover:bg-stone-900/85"
                 style={{
                     left: (typeof window === "undefined" ? defaultWorkflowButtonPosition() : clampWorkflowButtonPosition(workflowButtonPosition.x || workflowButtonPosition.y ? workflowButtonPosition : defaultWorkflowButtonPosition())).x,
                     top: (typeof window === "undefined" ? defaultWorkflowButtonPosition() : clampWorkflowButtonPosition(workflowButtonPosition.x || workflowButtonPosition.y ? workflowButtonPosition : defaultWorkflowButtonPosition())).y
@@ -1236,8 +1236,8 @@ export default function ImagePage() {
                     setWorkflowDrawerOpen(true);
                 }}
             >
-                <span className="absolute -right-0.5 -top-0.5 size-2.5 rounded-full bg-sky-400 shadow-[0_0_18px_rgba(56,189,248,0.9)]" />
-                <WandSparkles className="size-4 text-sky-500 dark:text-sky-300" />
+                <span className="absolute -right-0.5 -top-0.5 size-2.5 rounded-full bg-violet-500 shadow-[0_0_18px_rgba(139,92,246,0.9)]" />
+                <WandSparkles className="size-4 text-violet-600 dark:text-violet-300" />
                 工作流
             </button>
             <Drawer title="创作工作流" placement="right" size="min(1120px, 92vw)" open={workflowDrawerOpen}  onClose={() => setWorkflowDrawerOpen(false)} styles={{ body: { padding: 0 } }} destroyOnHidden={false}>
@@ -1335,7 +1335,7 @@ function WorkbenchPanel({
     if (layout === "bottom") {
         return (
             <div className="pointer-events-none fixed inset-x-0 bottom-5 z-40 flex justify-center px-5 sm:bottom-7 sm:px-10 lg:px-16">
-                <div className="pointer-events-auto w-full max-w-5xl rounded-[24px] bg-white/65 p-4 shadow-[0_32px_100px_rgba(15,23,42,.22),0_10px_34px_rgba(15,23,42,.10)] ring-1 ring-white/50 backdrop-blur-2xl dark:bg-stone-950/60 dark:ring-white/10 dark:shadow-[0_34px_110px_rgba(0,0,0,.58)]">
+                <div className="pointer-events-auto w-full max-w-5xl rounded-2xl bg-white/62 p-4 shadow-[0_28px_90px_rgba(76,29,149,.18),0_10px_30px_rgba(15,23,42,.08)] ring-1 ring-white/65 backdrop-blur-2xl dark:bg-stone-950/58 dark:ring-white/10 dark:shadow-[0_30px_100px_rgba(0,0,0,.52)]">
                     <div className="flex flex-col gap-3">
                         <div className="grid gap-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
                             <Input.TextArea
@@ -1413,7 +1413,7 @@ function WorkbenchPanel({
     }
 
     return (
-        <div className="flex min-h-[420px] flex-col overflow-hidden rounded-lg border border-stone-200 bg-card shadow-sm dark:border-stone-800 lg:min-h-0">
+        <div className="flex min-h-[420px] flex-col overflow-hidden rounded-lg border border-white/70 bg-white/52 shadow-[0_18px_55px_rgba(76,29,149,0.09)] backdrop-blur-xl dark:border-white/10 dark:bg-stone-950/52 lg:min-h-0">
             <div className="shrink-0 p-4 pb-3">
                 <WorkbenchHeader currentLayout={currentLayout} onLayoutChange={onLayoutChange} />
             </div>
@@ -1662,7 +1662,7 @@ function ResultsPanel({
     }, [activeCategoryId, categories, onActiveCategoryChange]);
 
     return (
-        <div className={`thin-scrollbar rounded-lg border border-stone-200 bg-card p-4 shadow-sm dark:border-stone-800 lg:min-h-0 lg:overflow-y-auto lg:p-5 ${className}`}>
+        <div className={`thin-scrollbar rounded-lg border border-white/70 bg-white/52 p-4 shadow-[0_18px_55px_rgba(76,29,149,0.09)] backdrop-blur-xl dark:border-white/10 dark:bg-stone-950/52 lg:min-h-0 lg:overflow-y-auto lg:p-5 ${className}`}>
             <div className="mb-4 flex items-center justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-2">
                     <History className="size-4 text-stone-400" />

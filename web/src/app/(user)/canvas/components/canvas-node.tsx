@@ -14,7 +14,6 @@ import { isCanvasImageNodeType } from "../utils/canvas-panorama";
 import type { CanvasResourceReference } from "../utils/canvas-resource-references";
 
 type ResizeCorner = "top-left" | "top-right" | "bottom-left" | "bottom-right";
-const selectionBlue = "#2f80ff";
 const CanvasPanoramaViewer = dynamic(() => import("./canvas-panorama-viewer"), { ssr: false, loading: () => null });
 
 type CanvasNodeProps = {
@@ -127,7 +126,7 @@ export const CanvasNode = React.memo(function CanvasNode({
     const isBatchRoot = isCanvasImageNodeType(data.type) && Boolean(data.metadata?.isBatchRoot) && batchCount > 1;
     const isBatchChild = isCanvasImageNodeType(data.type) && Boolean(data.metadata?.batchRootId);
     const isActive = isConnectionTarget || isSelected || isFocusRelated;
-    const imageBorderColor = isActive ? selectionBlue : isRelated && !isBatchChild ? theme.node.muted : "transparent";
+    const imageBorderColor = isActive ? theme.node.activeStroke : isRelated && !isBatchChild ? theme.node.muted : "transparent";
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const titleInputRef = useRef<HTMLInputElement>(null);
     const resizeRef = useRef({
@@ -351,8 +350,18 @@ export const CanvasNode = React.memo(function CanvasNode({
                 className={`relative h-full w-full overflow-visible border ${isGroup ? "rounded-xl" : "rounded-3xl border-2"}`}
                 style={{
                     background: isGroup ? theme.node.panel : hasImageContent || hasVideoContent ? "transparent" : theme.node.fill,
-                    borderColor: isGroup ? isGroupDropTarget || isActive ? selectionBlue : theme.node.stroke : hasImageContent ? imageBorderColor : isActive ? selectionBlue : isRelated ? theme.node.muted : theme.node.stroke,
-                    boxShadow: isGroupDropTarget ? `0 0 0 2px ${selectionBlue}66` : isGroup && isSelected ? `0 0 0 1px ${selectionBlue}55` : isActive ? `0 0 0 1px ${selectionBlue}55` : isRelated && !isBatchChild ? `0 0 0 1px ${theme.node.muted}55, 0 18px 48px rgba(0,0,0,.14)` : undefined,
+                    borderColor: isGroup ? isGroupDropTarget || isActive ? theme.node.activeStroke : theme.node.stroke : hasImageContent ? imageBorderColor : isActive ? theme.node.activeStroke : isRelated ? theme.node.muted : theme.node.stroke,
+                    boxShadow: isGroupDropTarget
+                        ? `0 0 0 2px color-mix(in srgb, ${theme.node.activeStroke} 42%, transparent), 0 16px 40px rgba(124,58,237,.14)`
+                        : isGroup && isSelected
+                          ? `0 0 0 1px color-mix(in srgb, ${theme.node.activeStroke} 38%, transparent)`
+                          : isActive
+                            ? `0 0 0 1px color-mix(in srgb, ${theme.node.activeStroke} 38%, transparent), 0 14px 34px rgba(124,58,237,.12)`
+                            : isRelated && !isBatchChild
+                              ? `0 0 0 1px color-mix(in srgb, ${theme.node.muted} 34%, transparent), 0 16px 38px rgba(0,0,0,.12)`
+                              : hovered && !isGroup
+                                ? "0 12px 30px rgba(15,23,42,.10)"
+                                : undefined,
                 }}
                 onMouseDown={(event) => onMouseDown(event, data.id)}
                 onDoubleClick={(event) => {
@@ -422,7 +431,7 @@ export const CanvasNode = React.memo(function CanvasNode({
                 {!isGroup && !hasImageContent && !hasVideoContent && !hasAudioContent ? <div className="pointer-events-none absolute inset-x-0 bottom-0 h-12" style={{ background: `linear-gradient(to top, ${theme.canvas.background}66, transparent)` }} /> : null}
 
                 {referenceSelectionState && (referenceSelectionState !== "available" || hovered) ? (
-                    <div className="pointer-events-none absolute inset-0 z-[60] grid place-items-center rounded-[inherit]" style={{ background: `color-mix(in srgb, ${theme.canvas.background} ${referenceSelectionState === "target" ? 78 : referenceSelectionState === "disabled" ? 60 : 34}%, transparent)`, boxShadow: referenceSelectionState === "available" ? `inset 0 0 0 2px ${selectionBlue}` : undefined }}>
+                    <div className="pointer-events-none absolute inset-0 z-[60] grid place-items-center rounded-[inherit]" style={{ background: `color-mix(in srgb, ${theme.canvas.background} ${referenceSelectionState === "target" ? 78 : referenceSelectionState === "disabled" ? 60 : 34}%, transparent)`, boxShadow: referenceSelectionState === "available" ? `inset 0 0 0 2px ${theme.node.activeStroke}` : undefined }}>
                         {referenceSelectionState !== "disabled" ? <span className="rounded-lg px-3 py-2 text-sm font-medium shadow-sm" style={{ background: theme.toolbar.panel, color: theme.node.text }}>{referenceSelectionState === "target" ? "正在添加参考" : "选择"}</span> : null}
                     </div>
                 ) : null}
@@ -483,8 +492,8 @@ function LoadingContent({ node, theme, now }: Pick<NodeContentRendererProps, "no
         return (
             <div className="flex h-full w-full flex-col justify-between overflow-hidden p-4" style={{ color: theme.node.text }}>
                 <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3">
-                    <div className="size-10 animate-spin rounded-full border-2" style={{ borderColor: theme.node.stroke, borderTopColor: selectionBlue }} />
-                    <div className="text-sm font-semibold" style={{ color: selectionBlue }}>
+                    <div className="size-10 animate-spin rounded-full border-2" style={{ borderColor: theme.node.stroke, borderTopColor: theme.node.activeStroke }} />
+                    <div className="text-sm font-semibold" style={{ color: theme.node.activeStroke }}>
                         正在创作 {progress}%
                     </div>
                     <span className="rounded-full px-2 py-1 text-xs" style={{ background: theme.toolbar.panel, color: theme.node.text }}>
@@ -497,7 +506,7 @@ function LoadingContent({ node, theme, now }: Pick<NodeContentRendererProps, "no
                         <span>{progress}%</span>
                     </div>
                     <div className="h-1.5 overflow-hidden rounded-full" style={{ background: theme.node.stroke }}>
-                        <div className="h-full rounded-full transition-all" style={{ width: `${progress}%`, background: selectionBlue }} />
+                        <div className="h-full rounded-full transition-all" style={{ width: `${progress}%`, background: theme.node.activeStroke }} />
                     </div>
                 </div>
             </div>
@@ -780,7 +789,7 @@ function ImageContent({
                 <button
                     type="button"
                     className="absolute right-2.5 top-2.5 z-30 flex h-8 items-center justify-center gap-1 rounded-full border px-2.5 text-xs font-semibold shadow-[0_6px_18px_rgba(15,23,42,.10)] backdrop-blur-md transition hover:scale-[1.02]"
-                    style={{ background: `${theme.toolbar.panel}d9`, borderColor: `${theme.toolbar.border}cc`, color: theme.node.text }}
+                    style={{ background: `color-mix(in srgb, ${theme.toolbar.panel} 92%, transparent)`, borderColor: theme.toolbar.border, color: theme.node.text }}
                     aria-label={batchExpanded ? "图片组已展开" : "图片组已收起"}
                     onClick={(event) => {
                         event.stopPropagation();
@@ -789,7 +798,7 @@ function ImageContent({
                     onMouseDown={(event) => event.stopPropagation()}
                     onPointerDown={(event) => event.stopPropagation()}
                 >
-                    <span className="leading-none text-[#2f80ff]">{batchCount}</span>
+                    <span className="leading-none" style={{ color: theme.node.activeStroke }}>{batchCount}</span>
                     <ChevronRight className={`size-3.5 opacity-55 transition-transform ${batchExpanded ? "rotate-90" : ""}`} />
                 </button>
             ) : null}
@@ -805,7 +814,7 @@ function ImageContent({
                     onMouseDown={(event) => event.stopPropagation()}
                     onPointerDown={(event) => event.stopPropagation()}
                 >
-                    <Star className="size-3.5 text-[#2f80ff]" />
+                    <Star className="size-3.5" style={{ color: theme.node.activeStroke }} />
                     设为主图
                 </button>
             ) : null}

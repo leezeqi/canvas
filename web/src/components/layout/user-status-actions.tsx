@@ -7,7 +7,6 @@ import type { ItemType } from "antd/es/menu/interface";
 import Link from "next/link";
 
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
-import { GitHubLink } from "@/components/layout/github-link";
 import { VersionReleaseModal } from "@/components/layout/version-release-modal";
 import { CreditSymbol } from "@/constant/credits";
 import { cn } from "@/lib/utils";
@@ -17,6 +16,8 @@ import { useThemeStore } from "@/stores/use-theme-store";
 import { useUserStore } from "@/stores/use-user-store";
 
 type UserStatusActionsProps = {
+    className?: string;
+    compact?: boolean;
     showConfig?: boolean;
     variant?: "default" | "canvas";
     onOpenShortcuts?: () => void;
@@ -26,7 +27,7 @@ type UserStatusActionsProps = {
     getPopupContainer?: (node: HTMLElement) => HTMLElement;
 };
 
-export function UserStatusActions({ showConfig = true, variant = "default", onOpenShortcuts, accountOpen, onAccountOpenChange, accountRef, getPopupContainer }: UserStatusActionsProps) {
+export function UserStatusActions({ className, compact = false, showConfig = true, variant = "default", onOpenShortcuts, accountOpen, onAccountOpenChange, accountRef, getPopupContainer }: UserStatusActionsProps) {
     const theme = useThemeStore((state) => state.theme);
     const setTheme = useThemeStore((state) => state.setTheme);
     const user = useUserStore((state) => state.user);
@@ -37,11 +38,9 @@ export function UserStatusActions({ showConfig = true, variant = "default", onOp
     const credits = user?.credits ?? 0;
     const avatarUrl = user?.avatarUrl?.trim();
     const avatarText = (userName.trim()[0] || "U").toUpperCase();
-    const naturalIconClass = "inline-flex size-7 shrink-0 items-center justify-center text-stone-600 transition hover:text-stone-950 dark:text-stone-300 dark:hover:text-white [&_svg]:size-4";
+    const naturalIconClass = "inline-flex size-7 shrink-0 items-center justify-center rounded-lg text-slate-500 transition hover:bg-violet-500/10 hover:text-violet-700 dark:text-slate-300 dark:hover:text-violet-300 [&_svg]:size-4";
     const iconStyle: CSSProperties | undefined = variant === "canvas" ? { color: canvasTheme.node.text } : undefined;
     const versionStyle = iconStyle;
-    const gitHubClassName = "size-7 text-base";
-    const gitHubStyle = iconStyle;
     const avatarStyle: CSSProperties | undefined = variant === "canvas" ? { borderColor: canvasTheme.toolbar.border, color: canvasTheme.node.text, background: "transparent" } : undefined;
     const menuItems: ItemType[] = [
         { key: "user", disabled: true, label: <span className="font-medium text-current">{userName}</span> },
@@ -52,15 +51,14 @@ export function UserStatusActions({ showConfig = true, variant = "default", onOp
     ];
 
     return (
-        <div className="inline-flex shrink-0 items-center gap-1">
+        <div className={cn("inline-flex shrink-0 items-center gap-1", className)}>
             {showConfig ? (
                 <button type="button" className={naturalIconClass} style={iconStyle} onClick={() => openConfigDialog(false)} aria-label="配置" title="配置">
                     <Settings2 className="size-4" />
                 </button>
             ) : null}
             <AnimatedThemeToggler theme={theme} onThemeChange={setTheme} className={naturalIconClass} style={iconStyle} aria-label={theme === "dark" ? "切换到浅色主题" : "切换到深色主题"} title={theme === "dark" ? "切换到浅色主题" : "切换到深色主题"} />
-            <VersionReleaseModal style={versionStyle} />
-            <GitHubLink className={cn("bg-transparent hover:bg-transparent dark:hover:bg-transparent", gitHubClassName)} style={gitHubStyle} />
+            {!compact ? <VersionReleaseModal style={versionStyle} /> : null}
             {variant === "canvas" && user ? (
                 <Tooltip title="当前算力点余额" placement="bottom">
                     <div className="flex h-8 shrink-0 items-center gap-1.5 px-1.5 text-xs font-medium tabular-nums opacity-75 transition hover:opacity-100" style={{ color: canvasTheme.node.text }}>
@@ -75,7 +73,7 @@ export function UserStatusActions({ showConfig = true, variant = "default", onOp
                 </button>
             ) : null}
             {!user ? (
-                <Link href="/login" className="px-1.5 text-sm font-medium text-stone-600 underline-offset-4 transition hover:text-stone-950 hover:underline dark:text-stone-300 dark:hover:text-stone-100" style={iconStyle}>
+                <Link href="/login" className="px-1.5 text-sm font-medium text-slate-600 underline-offset-4 transition hover:text-violet-700 hover:underline dark:text-slate-300 dark:hover:text-violet-300" style={iconStyle}>
                     登录
                 </Link>
             ) : null}
@@ -87,7 +85,7 @@ export function UserStatusActions({ showConfig = true, variant = "default", onOp
                                 size={24}
                                 src={avatarUrl ? <img src={avatarUrl} alt={userName} referrerPolicy="no-referrer" /> : undefined}
                                 alt={userName}
-                                className="!flex !items-center !justify-center border border-stone-300 bg-transparent text-[11px] font-semibold text-stone-800 transition hover:border-stone-500 hover:text-stone-950 dark:border-stone-700 dark:text-stone-100 dark:hover:border-stone-400 dark:hover:text-white"
+                                className="!flex !items-center !justify-center border border-slate-300 bg-transparent text-[11px] font-semibold text-slate-800 transition hover:border-violet-500 hover:text-violet-700 dark:border-slate-700 dark:text-slate-100 dark:hover:border-violet-400 dark:hover:text-violet-200"
                                 style={avatarStyle}
                             >
                                 {avatarText}

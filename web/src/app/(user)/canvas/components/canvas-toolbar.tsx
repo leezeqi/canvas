@@ -64,7 +64,12 @@ export function CanvasToolbar({
     const [tipX, setTipX] = useState(0);
     const [appearanceOpen, setAppearanceOpen] = useState(false);
     const [panelX, setPanelX] = useState(0);
-    const dockStyle = { background: theme.toolbar.panel, borderColor: theme.toolbar.border, color: theme.toolbar.item, boxShadow: colorTheme === "dark" ? "0 18px 45px rgba(0,0,0,.32)" : "0 16px 40px rgba(28,25,23,.12)" };
+    const dockStyle = {
+        background: theme.toolbar.panel,
+        borderColor: theme.toolbar.border,
+        color: theme.toolbar.item,
+        boxShadow: colorTheme === "dark" ? "0 18px 42px rgba(0,0,0,.28), inset 0 1px rgba(255,255,255,.07)" : "0 16px 36px rgba(52,65,94,.11), inset 0 1px rgba(255,255,255,.72)",
+    };
     const hoverStyle = { background: theme.toolbar.itemHover, color: theme.toolbar.activeText };
     const activeStyle = { background: theme.toolbar.activeBg, color: theme.toolbar.activeText };
     const tip = hovered ? toolLabel(hovered) : "";
@@ -72,7 +77,7 @@ export function CanvasToolbar({
     return (
         <div className="pointer-events-none absolute bottom-5 z-50 flex justify-center" style={{ left: 300, right: 16 }}>
             {tip ? <DockTip label={tip} x={tipX} theme={theme} /> : null}
-            <div ref={wrapRef} className="thin-scrollbar pointer-events-auto flex h-14 max-w-full items-center gap-1 overflow-x-auto rounded-xl border px-2 shadow-lg backdrop-blur [&>*]:shrink-0" style={dockStyle}>
+            <div ref={wrapRef} className="thin-scrollbar pointer-events-auto flex h-14 max-w-full items-center gap-1 overflow-x-auto rounded-2xl border px-2 backdrop-blur-md [&>*]:shrink-0" style={dockStyle}>
                 <ToolbarButton id={`tool-${canvasTool}`} label={canvasTool === "select" ? "选择" : "移动"} active hovered={hovered} activeStyle={activeStyle} hoverStyle={hoverStyle} wrapRef={wrapRef} onTipX={setTipX} onHover={setHovered} onClick={() => onCanvasToolChange(canvasTool === "select" ? "pan" : "select")}>
                     {canvasTool === "select" ? <MousePointer2 className="size-4.5" /> : <Hand className="size-4.5" />}
                 </ToolbarButton>
@@ -147,8 +152,8 @@ export function CanvasToolbar({
 
             {appearanceOpen ? (
                 <div
-                    className="pointer-events-auto absolute bottom-[72px] z-30 w-[248px] -translate-x-1/2 rounded-xl border p-2.5 shadow-xl backdrop-blur"
-                    style={{ left: panelX || "50%", background: theme.toolbar.panel, borderColor: theme.toolbar.border, color: theme.toolbar.item }}
+                    className="pointer-events-auto absolute bottom-[72px] z-30 w-[248px] -translate-x-1/2 rounded-2xl border p-2.5 backdrop-blur-md"
+                    style={{ left: panelX || "50%", background: theme.toolbar.panel, borderColor: theme.toolbar.border, color: theme.toolbar.item, boxShadow: colorTheme === "dark" ? "0 20px 48px rgba(0,0,0,.32), inset 0 1px rgba(255,255,255,.06)" : "0 18px 42px rgba(52,65,94,.14), inset 0 1px rgba(255,255,255,.7)" }}
                 >
                     <div className="px-1 pb-2 text-sm font-medium opacity-65">画布外观</div>
                     <div className="px-1 pb-1.5 text-[11px] font-medium opacity-50">主题模式</div>
@@ -243,7 +248,7 @@ function ToolbarButton({
         <Button
             type="text"
             aria-label={label}
-            className="!h-8 !w-8 !min-w-8 !p-0"
+            className="!h-8 !w-8 !min-w-8 !rounded-lg !p-0 !transition-colors"
             disabled={disabled}
             style={active ? activeStyle : hovered === id && !disabled ? hoverStyle : { color: danger ? "#f87171" : theme.toolbar.item, opacity: disabled ? 0.35 : 1 }}
             icon={children}
@@ -264,14 +269,14 @@ function Divider({ theme }: { theme: CanvasTheme }) {
 function CanvasThemeButton({ colorTheme, targetTheme, onThemeChange, children }: { colorTheme: CanvasColorTheme; targetTheme: CanvasColorTheme; onThemeChange: (theme: CanvasColorTheme) => void; children: ReactNode }) {
     const theme = canvasThemes[colorTheme];
     const active = colorTheme === targetTheme;
-    const activeStyle = colorTheme === "light" ? { background: "#111111", color: "#ffffff" } : { background: theme.toolbar.activeBg, color: theme.toolbar.activeText };
+    const activeStyle = { background: theme.toolbar.activeBg, color: theme.toolbar.activeText, boxShadow: `inset 0 0 0 1px ${theme.toolbar.border}` };
 
     return (
         <AnimatedThemeToggler
             theme={colorTheme}
             targetTheme={targetTheme}
             onThemeChange={onThemeChange}
-            className="inline-flex h-8 min-w-0 items-center justify-center gap-1.5 rounded-md px-2 text-sm transition"
+            className="inline-flex h-8 min-w-0 items-center justify-center gap-1.5 rounded-lg px-2 text-sm transition"
             style={active ? activeStyle : { color: theme.toolbar.item }}
             aria-label={`切换到${targetTheme === "dark" ? "深色" : "浅色"}主题`}
             title={`切换到${targetTheme === "dark" ? "深色" : "浅色"}主题`}

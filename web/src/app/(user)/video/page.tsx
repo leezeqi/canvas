@@ -1039,7 +1039,7 @@ export default function VideoPage() {
     };
 
     return (
-        <div className="flex h-full flex-col overflow-hidden bg-stone-50 text-stone-900 dark:bg-stone-950 dark:text-stone-100">
+        <div className="flex h-full flex-col overflow-hidden bg-background bg-[linear-gradient(135deg,rgba(139,92,246,0.12),transparent_32%,transparent_72%,rgba(14,165,233,0.08))] text-stone-900 dark:bg-[linear-gradient(135deg,rgba(139,92,246,0.18),transparent_34%,transparent_70%,rgba(14,165,233,0.08))] dark:text-stone-100">
             <main className={`${workbenchLayout === "side" ? "grid grid-cols-1 lg:grid-cols-[420px_minmax(0,1fr)]" : "relative flex flex-col"} min-h-0 flex-1 gap-3 overflow-y-auto p-3 lg:overflow-hidden`}>
                 {workbenchLayout === "side" ? (
                     <>
@@ -1392,7 +1392,7 @@ function WorkbenchPanel({
     if (layout === "bottom") {
         return (
             <div className="pointer-events-none fixed inset-x-0 bottom-5 z-40 flex justify-center px-5 sm:bottom-7 sm:px-10 lg:px-16">
-                <div className="pointer-events-auto w-full max-w-5xl rounded-[24px] bg-white/65 p-4 shadow-[0_32px_100px_rgba(15,23,42,.22),0_10px_34px_rgba(15,23,42,.10)] ring-1 ring-white/50 backdrop-blur-2xl dark:bg-stone-950/60 dark:ring-white/10 dark:shadow-[0_34px_110px_rgba(0,0,0,.58)]">
+                <div className="pointer-events-auto w-full max-w-5xl rounded-2xl bg-white/62 p-4 shadow-[0_28px_90px_rgba(76,29,149,.18),0_10px_30px_rgba(15,23,42,.08)] ring-1 ring-white/65 backdrop-blur-2xl dark:bg-stone-950/58 dark:ring-white/10 dark:shadow-[0_30px_100px_rgba(0,0,0,.52)]">
                     <div className="flex flex-col gap-3">
                         <div className="grid gap-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
                             <Input.TextArea
@@ -1462,7 +1462,7 @@ function WorkbenchPanel({
     }
 
     return (
-        <div className="flex min-h-[420px] flex-col overflow-hidden rounded-lg border border-stone-200 bg-card shadow-sm dark:border-stone-800 lg:min-h-0">
+        <div className="flex min-h-[420px] flex-col overflow-hidden rounded-lg border border-white/70 bg-white/52 shadow-[0_18px_55px_rgba(76,29,149,0.09)] backdrop-blur-xl dark:border-white/10 dark:bg-stone-950/52 lg:min-h-0">
             <div className="shrink-0 p-4 pb-3">
                 <WorkbenchHeader currentLayout={currentLayout} onLayoutChange={onLayoutChange} />
             </div>
@@ -1827,7 +1827,7 @@ function ResultsPanel({
     const toggleVisibleLogs = () => onSelectedLogIdsChange(allSelected ? selectedLogIds.filter((id) => !visibleLogs.some((log) => log.id === id)) : Array.from(new Set([...selectedLogIds, ...visibleLogs.map((log) => log.id)])));
 
     return (
-        <section className={`thin-scrollbar rounded-lg border border-stone-200 bg-card p-4 shadow-sm dark:border-stone-800 lg:min-h-0 lg:overflow-y-auto lg:p-5 ${className}`}>
+        <section className={`thin-scrollbar rounded-lg border border-white/70 bg-white/52 p-4 shadow-[0_18px_55px_rgba(76,29,149,0.09)] backdrop-blur-xl dark:border-white/10 dark:bg-stone-950/52 lg:min-h-0 lg:overflow-y-auto lg:p-5 ${className}`}>
             <div className="mb-4 flex items-center justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-2">
                     <HistoryIcon />

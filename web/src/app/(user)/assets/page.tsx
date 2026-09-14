@@ -119,19 +119,19 @@ export default function AssetsPage() {
 
     return (
         <div className="flex h-full flex-col overflow-hidden bg-background text-stone-900 dark:text-stone-100">
-            <main className="min-h-0 flex-1 overflow-y-auto bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] px-6 py-8 [background-size:16px_16px] dark:bg-[radial-gradient(rgba(245,245,244,.14)_1px,transparent_1px)]">
+            <main className="min-h-0 flex-1 overflow-y-auto bg-[linear-gradient(135deg,rgba(139,92,246,0.11),transparent_30%,transparent_72%,rgba(14,165,233,0.08))] px-4 py-8 sm:px-6 dark:bg-[linear-gradient(135deg,rgba(139,92,246,0.16),transparent_32%,transparent_70%,rgba(14,165,233,0.08))]">
                 <div className="pb-8">
                     <div className="mx-auto max-w-5xl text-center">
-                        <h1 className="text-4xl font-semibold tracking-tight text-stone-950 dark:text-stone-100">我的素材</h1>
+                        <h1 className="text-4xl font-semibold text-stone-950 dark:text-stone-100">我的素材</h1>
                         <p className="mt-3 text-sm text-stone-500 dark:text-stone-400">收藏和管理常用素材，按类型、标题、分类和标签快速查找。</p>
                     </div>
 
                     <div className="mx-auto mt-8 w-full max-w-2xl">
                         <Input.Search
-                            className="w-full"
+                            className="w-full !border-white/70 !bg-white/65 !shadow-[0_16px_45px_rgba(76,29,149,0.08)] backdrop-blur-xl dark:!border-white/10 dark:!bg-stone-950/55"
                             size="large"
                             allowClear
-                            prefix={<Search className="size-4 text-stone-400" />}
+                            prefix={<Search className="size-4 text-violet-500" />}
                             value={keyword}
                             placeholder="搜索标题、内容、分类、标签或来源"
                             onChange={(event) => {
@@ -145,7 +145,7 @@ export default function AssetsPage() {
                         />
                     </div>
 
-                    <div className="mx-auto mt-6 grid max-w-6xl gap-3 text-left">
+                    <div className="mx-auto mt-6 grid max-w-6xl gap-3 rounded-lg border border-white/60 bg-white/45 p-4 text-left shadow-[0_18px_55px_rgba(76,29,149,0.07)] backdrop-blur-xl dark:border-white/10 dark:bg-stone-950/45">
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                             <div className="grid gap-2 sm:grid-cols-[56px_minmax(0,1fr)] sm:items-center">
                                 <div className="text-xs font-medium text-stone-500 dark:text-stone-400">类型</div>
@@ -268,7 +268,7 @@ function AssetCard({ asset, onOpen, onEdit, onCopy, onDownload, onDelete }: { as
     return (
         <Card
             hoverable
-            className="overflow-hidden"
+            className="overflow-hidden !border-white/65 !bg-white/55 !shadow-[0_16px_48px_rgba(76,29,149,0.08)] backdrop-blur-xl transition-transform duration-200 hover:-translate-y-0.5 dark:!border-white/10 dark:!bg-stone-950/55"
             styles={{ body: { padding: 0 } }}
             cover={
                 <button type="button" className="block w-full text-left" onClick={onOpen}>
@@ -277,7 +277,7 @@ function AssetCard({ asset, onOpen, onEdit, onCopy, onDownload, onDelete }: { as
                     ) : asset.kind === "video" ? (
                         <video src={asset.data.url + "#t=0.1"} muted playsInline preload="metadata" className="aspect-[4/3] w-full object-cover" />
                     ) : (
-                        <div className="flex aspect-[4/3] items-center justify-center bg-stone-100 p-5 text-center text-sm leading-6 text-stone-600 dark:bg-stone-900 dark:text-stone-300">{asset.kind === "text" ? asset.data.content : "暂无封面"}</div>
+                        <div className="flex aspect-[4/3] items-center justify-center bg-violet-50/60 p-5 text-center text-sm leading-6 text-stone-600 dark:bg-violet-950/20 dark:text-stone-300">{asset.kind === "text" ? asset.data.content : "暂无封面"}</div>
                     )}
                 </button>
             }

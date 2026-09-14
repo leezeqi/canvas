@@ -114,9 +114,9 @@ export default function AdminUsersPage() {
     ];
 
     return (
-        <main style={{ padding: 24 }}>
+        <main className="min-h-full bg-[linear-gradient(135deg,transparent_72%,rgba(139,92,246,0.07))] p-3 md:p-6">
             <Flex vertical gap={16}>
-                <Card variant="borderless">
+                <Card variant="borderless" className="!border !border-white/60 !bg-white/58 !shadow-[0_14px_42px_rgba(76,29,149,0.06)] backdrop-blur-xl dark:!border-white/10 dark:!bg-stone-950/52">
                     <Form layout="vertical">
                         <Row gutter={16} align="bottom">
                             <Col flex="360px">
@@ -159,7 +159,7 @@ export default function AdminUsersPage() {
                     search={false}
                     defaultSize="middle"
                     tableLayout="fixed"
-                    cardProps={{ variant: "borderless" }}
+                    cardProps={{ variant: "borderless", className: "!border !border-white/60 !bg-white/58 !shadow-[0_14px_42px_rgba(76,29,149,0.06)] backdrop-blur-xl dark:!border-white/10 dark:!bg-stone-950/52" }}
                     headerTitle={
                         <Space>
                             <Typography.Text strong>用户列表</Typography.Text>
