@@ -3,6 +3,7 @@
 import { useMemo, type ReactNode } from "react";
 import { ArrowUp, Brain, FolderOpen, ImageIcon, Menu, Square, Upload, Video } from "lucide-react";
 import { Button, Dropdown } from "antd";
+import { cn } from "@/lib/utils";
 
 import { canvasThemes } from "@/lib/canvas-theme";
 import { useEffectiveConfig } from "@/stores/use-config-store";
@@ -72,14 +73,14 @@ export function CanvasAssistantComposer({
     const submit = (nextPrompt = prompt, referenceIds = references.map((reference) => reference.id)) => onSubmit(nextPrompt, referenceIds);
 
     return (
-        <div className="px-2 pb-2" onWheelCapture={(event) => event.stopPropagation()}>
+        <div className="w-full px-1" onWheelCapture={(event) => event.stopPropagation()}>
             <div
-                className="rounded-2xl border px-3 pb-3 pt-3 backdrop-blur-md"
-                style={{
-                    background: theme.toolbar.panel,
-                    borderColor: theme.toolbar.border,
-                    boxShadow: colorTheme === "dark" ? "0 18px 46px rgba(0,0,0,.24), inset 0 1px rgba(255,255,255,.06)" : "0 16px 38px rgba(52,65,94,.10), inset 0 1px rgba(255,255,255,.72)",
-                }}
+                className={cn(
+                    "relative group/composer rounded-[24px] border p-4 backdrop-blur-2xl transition-all duration-300",
+                    colorTheme === "dark"
+                        ? "bg-[#0d0e13]/90 border-white/[0.09] shadow-[0_24px_64px_-16px_rgba(0,0,0,0.7),inset_0_1px_0_0_rgba(255,255,255,0.09)] focus-within:border-white/20 focus-within:shadow-[0_28px_72px_-16px_rgba(0,0,0,0.85)]"
+                        : "bg-white/95 border-black/[0.08] shadow-[0_20px_50px_-15px_rgba(0,0,0,0.06),0_2px_8px_rgba(0,0,0,0.02)] ring-1 ring-black/[0.03] focus-within:border-black/20 focus-within:shadow-[0_24px_56px_-12px_rgba(0,0,0,0.09)]"
+                )}
             >
                 <CanvasPromptChipInput
                     value={prompt}
@@ -91,24 +92,30 @@ export function CanvasAssistantComposer({
                     onReferenceIdsChange={onReferenceIdsChange}
                     onPasteImage={onPasteImage}
                     onSubmit={submit}
-                    className="thin-scrollbar min-h-20 max-h-[220px] w-full px-1 py-0 text-sm leading-5"
+                    className="thin-scrollbar min-h-[96px] max-h-[260px] w-full px-1 py-1 text-[15px] leading-relaxed selection:bg-foreground selection:text-background"
                     style={{ color: theme.node.text }}
-                    placeholder="描述创作目标，或让我继续操作画布"
-                    placeholderClassName="!left-1 !top-0"
+                    placeholder="输入构思意图、镜头调度指令，或拖拽装载参考素材..."
+                    placeholderClassName="!left-1 !top-1 text-foreground/40 text-[14px]"
                 />
-                <div className="canvas-composer-tools @container mt-2 flex items-center justify-between gap-2">
-                    <div className="flex min-w-0 flex-1 items-center gap-1">
+                <div className="canvas-composer-tools @container mt-3 flex items-center justify-between gap-2 pt-2 border-t border-border/40">
+                    <div className="flex min-w-0 flex-1 items-center gap-1.5 flex-wrap">
                         <Dropdown
                             trigger={["click"]}
                             menu={{
                                 items: [
-                                    { key: "upload", icon: <Upload className="size-4" />, label: "上传文件" },
-                                    { key: "assets", icon: <FolderOpen className="size-4" />, label: "我的素材" },
+                                    { key: "upload", icon: <Upload className="size-4" />, label: "上传素材文件" },
+                                    { key: "assets", icon: <FolderOpen className="size-4" />, label: "打开资产库" },
                                 ],
                                 onClick: ({ key }) => (key === "upload" ? onOpenUpload() : onOpenAssets()),
                             }}
                         >
-                            <Button type="text" shape="circle" className="!h-8 !w-8 !min-w-8" style={{ color: theme.node.text }} icon={<Menu className="size-4" />} aria-label="添加素材" />
+                            <Button
+                                type="text"
+                                className="!h-8.5 !w-8.5 !min-w-8.5 !rounded-full !border !border-border/60 !bg-foreground/[0.03] hover:!bg-foreground/[0.08] hover:!border-foreground/20"
+                                style={{ color: theme.node.text }}
+                                icon={<Menu className="size-4" />}
+                                aria-label="添加素材"
+                            />
                         </Dropdown>
                         {onSkillSelect && onSkillRemove ? <CanvasAgentSkillPopover selectedSkills={selectedSkills} onSelect={onSkillSelect} onDeleteSelected={onSkillRemove} /> : null}
                         {codexControls}
@@ -117,7 +124,7 @@ export function CanvasAssistantComposer({
                             placement="topLeft"
                             showCount={false}
                             buttonIcon={<ImageIcon className="size-3.5" />}
-                            buttonClassName="canvas-composer-icon !h-8 !max-w-[116px] !justify-start !rounded-full !px-2.5"
+                            buttonClassName="canvas-composer-icon !h-8.5 !max-w-[124px] !justify-start !rounded-full !px-3 !border !border-border/60 !bg-foreground/[0.03] hover:!bg-foreground/[0.08] !text-xs font-mono"
                             onConfigChange={(key, value) => {
                                 if (key === "quality") onAgentConfigChange({ imageQuality: value });
                                 else if (key === "size") onAgentConfigChange({ imageSize: value });
@@ -128,35 +135,36 @@ export function CanvasAssistantComposer({
                             placement="topLeft"
                             visualOnly
                             buttonIcon={<Video className="size-3.5" />}
-                            buttonClassName="canvas-composer-icon !h-8 !max-w-[124px] !justify-start !rounded-full !px-2.5"
+                            buttonClassName="canvas-composer-icon !h-8.5 !max-w-[128px] !justify-start !rounded-full !px-3 !border !border-border/60 !bg-foreground/[0.03] hover:!bg-foreground/[0.08] !text-xs font-mono"
                             onConfigChange={(key, value) => {
                                 if (key === "vquality") onAgentConfigChange({ videoQuality: value });
                                 else if (key === "size") onAgentConfigChange({ videoSize: value });
                             }}
                         />
                     </div>
-                    <div className="flex shrink-0 items-center gap-1">
+                    <div className="flex shrink-0 items-center gap-1.5">
                         {!codexControls ? (
-                        <Button
-                            type="text"
-                            shape="circle"
-                            className="!h-8 !w-8 !min-w-8 !transition-colors"
-                            style={{ color: theme.node.text, background: reasoningEnabled ? theme.toolbar.activeBg : undefined }}
-                            icon={<Brain className="size-4" />}
-                            title={reasoningEnabled ? "推理已开启" : "推理已关闭"}
-                            aria-label={reasoningEnabled ? "关闭推理" : "开启推理"}
-                            aria-pressed={reasoningEnabled}
-                            onClick={() => onAgentConfigChange({ textReasoningEnabled: !reasoningEnabled })}
-                        />
+                            <Button
+                                type="text"
+                                className={cn(
+                                    "!h-8.5 !w-8.5 !min-w-8.5 !rounded-full !border !border-border/60 !transition-colors",
+                                    reasoningEnabled ? "!bg-foreground !text-background !border-foreground" : "!bg-foreground/[0.03] hover:!bg-foreground/[0.08]"
+                                )}
+                                style={{ color: reasoningEnabled ? undefined : theme.node.text }}
+                                icon={<Brain className="size-4" />}
+                                title={reasoningEnabled ? "深度思考已开启" : "深度思考已关闭"}
+                                aria-label={reasoningEnabled ? "关闭思考" : "开启思考"}
+                                aria-pressed={reasoningEnabled}
+                                onClick={() => onAgentConfigChange({ textReasoningEnabled: !reasoningEnabled })}
+                            />
                         ) : null}
                         <Button
                             type="primary"
-                            shape="circle"
-                            className="!size-10 !min-w-10 !border-0 !bg-violet-600 !shadow-[0_8px_22px_rgba(124,58,237,.28)] hover:!bg-violet-500 disabled:!bg-violet-600"
+                            className="!size-8.5 !min-w-8.5 !rounded-full !border-0 !bg-foreground !text-background hover:!opacity-90 active:!scale-95 transition-all shadow-[0_4px_14px_-2px_rgba(0,0,0,0.25)] dark:shadow-[0_0_16px_rgba(255,255,255,0.15)] disabled:!opacity-30 disabled:!bg-foreground"
                             disabled={!isRunning && !prompt.trim()}
                             onClick={() => (isRunning ? onStop?.() : void submit())}
                             aria-label={isRunning ? "停止" : "发送"}
-                            icon={isRunning ? <Square className="size-4 fill-current" /> : <ArrowUp className="size-4" />}
+                            icon={isRunning ? <Square className="size-3.5 fill-current" /> : <ArrowUp className="size-4" />}
                         />
                     </div>
                 </div>

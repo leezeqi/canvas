@@ -118,12 +118,12 @@ export default function AssetsPage() {
     };
 
     return (
-        <div className="flex h-full flex-col overflow-hidden bg-background text-stone-900 dark:text-stone-100">
+        <div className="flex h-full flex-col overflow-hidden bg-background text-foreground">
             <main className="min-h-0 flex-1 overflow-y-auto bg-[linear-gradient(135deg,rgba(139,92,246,0.11),transparent_30%,transparent_72%,rgba(14,165,233,0.08))] px-4 py-8 sm:px-6 dark:bg-[linear-gradient(135deg,rgba(139,92,246,0.16),transparent_32%,transparent_70%,rgba(14,165,233,0.08))]">
                 <div className="pb-8">
                     <div className="mx-auto max-w-5xl text-center">
-                        <h1 className="text-4xl font-semibold text-stone-950 dark:text-stone-100">我的素材</h1>
-                        <p className="mt-3 text-sm text-stone-500 dark:text-stone-400">收藏和管理常用素材，按类型、标题、分类和标签快速查找。</p>
+                        <h1 className="text-4xl font-semibold text-foreground">我的素材</h1>
+                        <p className="mt-3 text-sm text-muted-foreground dark:text-muted-foreground/80">收藏和管理常用素材，按类型、标题、分类和标签快速查找。</p>
                     </div>
 
                     <div className="mx-auto mt-8 w-full max-w-2xl">
@@ -131,7 +131,7 @@ export default function AssetsPage() {
                             className="w-full !border-white/70 !bg-white/65 !shadow-[0_16px_45px_rgba(76,29,149,0.08)] backdrop-blur-xl dark:!border-white/10 dark:!bg-stone-950/55"
                             size="large"
                             allowClear
-                            prefix={<Search className="size-4 text-violet-500" />}
+                            prefix={<Search className="size-4 text-foreground/50" />}
                             value={keyword}
                             placeholder="搜索标题、内容、分类、标签或来源"
                             onChange={(event) => {
@@ -148,7 +148,7 @@ export default function AssetsPage() {
                     <div className="mx-auto mt-6 grid max-w-6xl gap-3 rounded-lg border border-white/60 bg-white/45 p-4 text-left shadow-[0_18px_55px_rgba(76,29,149,0.07)] backdrop-blur-xl dark:border-white/10 dark:bg-stone-950/45">
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                             <div className="grid gap-2 sm:grid-cols-[56px_minmax(0,1fr)] sm:items-center">
-                                <div className="text-xs font-medium text-stone-500 dark:text-stone-400">类型</div>
+                                <div className="text-xs font-medium text-muted-foreground dark:text-muted-foreground/80">类型</div>
                                 <div className="flex flex-wrap gap-2">
                                     {kindOptions.map((option) => (
                                         <Tag.CheckableTag
@@ -190,7 +190,7 @@ export default function AssetsPage() {
                             </div>
                         </div>
                         <div className="grid gap-2 sm:grid-cols-[56px_minmax(0,1fr)] sm:items-center">
-                            <div className="text-xs font-medium text-stone-500 dark:text-stone-400">分类</div>
+                            <div className="text-xs font-medium text-muted-foreground dark:text-muted-foreground/80">分类</div>
                             <div className="thin-scrollbar flex max-h-[112px] flex-wrap gap-2 overflow-y-auto pr-1">
                                 {["", ...categories].map((category) => (
                                     <Tag.CheckableTag key={category || "all"} checked={categoryFilter === category} className={cn("prompt-filter-tag", categoryFilter === category && "is-active")} onChange={() => {
@@ -203,7 +203,7 @@ export default function AssetsPage() {
                             </div>
                         </div>
                         <div className="grid gap-2 sm:grid-cols-[56px_minmax(0,1fr)] sm:items-center">
-                            <div className="text-xs font-medium text-stone-500 dark:text-stone-400">标签</div>
+                            <div className="text-xs font-medium text-muted-foreground dark:text-muted-foreground/80">标签</div>
                             <div className="thin-scrollbar flex max-h-[112px] flex-wrap gap-2 overflow-y-auto pr-1">
                                 <Tag.CheckableTag checked={tagFilters.length === 0} className={cn("prompt-filter-tag", tagFilters.length === 0 && "is-active")} onChange={() => {
                                     setPage(1);
@@ -277,7 +277,7 @@ function AssetCard({ asset, onOpen, onEdit, onCopy, onDownload, onDelete }: { as
                     ) : asset.kind === "video" ? (
                         <video src={asset.data.url + "#t=0.1"} muted playsInline preload="metadata" className="aspect-[4/3] w-full object-cover" />
                     ) : (
-                        <div className="flex aspect-[4/3] items-center justify-center bg-violet-50/60 p-5 text-center text-sm leading-6 text-stone-600 dark:bg-violet-950/20 dark:text-stone-300">{asset.kind === "text" ? asset.data.content : "暂无封面"}</div>
+                        <div className="flex aspect-[4/3] items-center justify-center bg-foreground/5 p-5 text-center text-sm leading-6 text-foreground/55">{asset.kind === "text" ? asset.data.content : "暂无封面"}</div>
                     )}
                 </button>
             }
@@ -286,7 +286,7 @@ function AssetCard({ asset, onOpen, onEdit, onCopy, onDownload, onDelete }: { as
                 <div className="p-4">
                     <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                            <h2 className="line-clamp-1 text-sm font-semibold text-stone-950 dark:text-stone-100">{asset.title}</h2>
+                            <h2 className="line-clamp-1 text-sm font-semibold text-foreground">{asset.title}</h2>
                             <Typography.Text type="secondary" className="mt-1 block text-xs">
                                 {asset.source || "未标注来源"}
                             </Typography.Text>

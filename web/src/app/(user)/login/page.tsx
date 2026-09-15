@@ -85,19 +85,19 @@ function LoginContent() {
     };
 
     return (
-        <main className="flex h-full min-h-0 items-center justify-center overflow-y-auto bg-background bg-[linear-gradient(135deg,rgba(139,92,246,0.16),transparent_34%,transparent_66%,rgba(14,165,233,0.11))] px-5 py-10 dark:bg-[linear-gradient(135deg,rgba(139,92,246,0.21),transparent_36%,transparent_64%,rgba(14,165,233,0.10))]">
-            <section className="w-full max-w-[420px] rounded-lg border border-white/70 bg-white/58 p-6 shadow-[0_28px_90px_rgba(76,29,149,0.16)] backdrop-blur-2xl sm:p-8 dark:border-white/10 dark:bg-stone-950/58 dark:shadow-[0_28px_90px_rgba(0,0,0,0.38)]">
+        <main className="flex h-full min-h-0 items-center justify-center overflow-y-auto bg-background px-5 py-10">
+            <section className="w-full max-w-[420px] rounded-[24px] bg-card p-6 shadow-[rgba(0,0,0,0.08)_0px_12px_40px_-8px,rgba(0,0,0,0.05)_0px_4px_10px_-4px] sm:p-8">
                 <div className="mb-7 text-center">
                     <span
-                        className="mx-auto mb-4 block size-12 bg-violet-600 drop-shadow-[0_10px_20px_rgba(124,58,237,0.28)] dark:bg-violet-300"
+                        className="mx-auto mb-4 flex size-12 items-center justify-center rounded-full bg-foreground shadow-[rgba(0,0,0,0.2)_0px_4px_14px_-2px]"
                         style={{
                             mask: "url(/logo.svg) center / contain no-repeat",
                             WebkitMask: "url(/logo.svg) center / contain no-repeat",
                         }}
                         aria-label="无限画布"
                     />
-                    <h1 className="text-3xl font-semibold tracking-normal text-stone-950 dark:text-stone-100">账号登录</h1>
-                    <p className="mt-3 text-base leading-7 text-stone-500 dark:text-stone-400">支持账号密码和 Linux.do 登录。</p>
+                    <h1 className="text-3xl font-semibold tracking-[-0.02em] text-foreground">账号登录</h1>
+                    <p className="mt-3 text-base leading-7 text-foreground/55">支持账号密码和 Linux.do 登录。</p>
                 </div>
 
                 <Form<LoginFormValues> layout="vertical" size="large" requiredMark={false} onFinish={submit}>
