@@ -8,6 +8,7 @@ test("built-in protocol options retain both settings panels' labels and order", 
         { label: "Gemini", value: "gemini" },
         { label: "Grok2API", value: "grok2api" },
         { label: "火山方舟", value: "ark" },
+        { label: "即梦", value: "jimeng" },
         { label: "MiMo", value: "mimo" },
     ]);
 });
@@ -18,27 +19,19 @@ test("built-in protocols retain all existing default URLs and API Key links", ()
         gemini: "https://generativelanguage.googleapis.com",
         grok2api: "",
         metaso: "https://metaso.cn/api/minimax",
-        apimart: "https://api.apimart.ai/v1",
-        kie: "https://api.kie.ai/api/v1",
-        autodl: "https://autodl.art",
         ark: "https://ark.cn-beijing.volces.com/api/v3",
+        jimeng: "https://visual.volcengineapi.com",
         mimo: "https://api.xiaomimimo.com",
-        "88api": "https://88api.ai/v1",
     });
     assert.deepEqual(modelChannelApiKeyUrls, {
         metaso: "https://metaso.cn/minimax-h3/?s=tt",
-        apimart: "https://apimart.ai/register?aff=fWMrEv",
         mimo: "https://platform.xiaomimimo.com/?ref=JFZQR2",
-        "88api": "https://88api.ai/sign-up?aff=25ty",
     });
 });
 
 test("public parameter translation eligibility keeps exact protocol matching", () => {
-    assert.equal(directAIProviderForProtocol("kie"), "kie");
-    assert.equal(directAIProviderForProtocol("apimart"), "apimart");
-    assert.equal(directAIProviderForProtocol("autodl"), "autodl");
     assert.equal(directAIProviderForProtocol("ark"), "ark");
-    for (const protocol of ["openai", "gemini", "grok2api", "metaso", "mimo", "88api", "KIE", " kie ", "APIMart", "ARK", " ark ", "", "unknown"]) {
+    for (const protocol of ["openai", "gemini", "grok2api", "metaso", "jimeng", "mimo", "ARK", " ark ", "", "unknown"]) {
         assert.equal(directAIProviderForProtocol(protocol), null, protocol);
     }
 });

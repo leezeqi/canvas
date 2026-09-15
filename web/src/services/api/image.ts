@@ -2,15 +2,15 @@ import axios from "axios";
 
 import { isMiniMaxChannel, miniMaxModels } from "@/lib/minimax-video";
 import { dataUrlToFile } from "@/lib/image-utils";
-import { isKIESeedreamLayerDecompositionModel } from "@/lib/kie-models";
 import { isMimoChannel, mimoModels } from "@/lib/mimo-tts";
 import { dataUrlToGeminiInlineData, geminiActionUrl, geminiDirectHeaders, geminiErrorMessage, isGeminiConfig, normalizeGeminiBaseUrl } from "@/lib/gemini";
 import { autoSyncImage, imageToDataUrl, resolveImageUrl, type UploadedImage } from "@/services/image-storage";
 import { buildApiUrl, channelIdForActiveModel, channelProtocolForConfig, directAIProviderForConfig, localChannelForActiveModel, type AiConfig } from "@/stores/use-config-store";
 import { useUserStore } from "@/stores/use-user-store";
-import { fetchAutoDLWorkflows } from "./autodl";
 import type { ReferenceImage } from "@/types/image";
 import { nanoid } from "nanoid";
+
+const JIMENG_IMAGE_MODELS = ["jimeng_high_aes_general_v21_L"] as const;
 
 export type ChatCompletionMessage = {
     role: "system" | "user" | "assistant";
@@ -524,6 +524,11 @@ function usesAccountProxy(config: AiConfig) {
 export function aiApiUrl(config: AiConfig, path: string) {
     if (usesAccountProxy(config)) return `/api/v1${path}`;
     const channel = localChannelForActiveModel(config);
+    if (channel?.protocol === "jimeng" && path === "/images/generations") {
+        if (!usesAccountProxy(config)) throw new Error("即梦渠道需要登录后通过服务端代理使用");
+        const baseURL = (channel.baseUrl || config.baseUrl).trim().replace(/\/+$/, "");
+        return `${baseURL}/?Action=CVProcess&Version=2022-08-31`;
+    }
     return buildApiUrl(channel?.baseUrl || config.baseUrl, path);
 }
 
@@ -1020,7 +1025,6 @@ export async function createCanvasImageTask(config: AiConfig & { seedIndex?: num
             status: "completed",
             progress: 100,
             image_url: image.dataUrl,
-            ...(isKIESeedreamLayerDecompositionModel(config.model) ? { image_urls: images.map((item) => item.dataUrl) } : {}),
         }, image.id);
     }
     const params = createImageRequestParams({ ...config, count: "1" });
@@ -1219,8 +1223,8 @@ export async function fetchImageModels(config: AiConfig) {
     if (config.channelMode === "remote") return config.models;
     const channel = localChannelForActiveModel(config);
     if (channel?.protocol === "gemini") return fetchGeminiModels(channel.baseUrl, channel.apiKey);
-    if (channel?.protocol === "autodl") return (await fetchAutoDLWorkflows(channel.baseUrl)).map((workflow) => workflow.uuid);
     if (isMiniMaxChannel(channel)) return [...miniMaxModels];
+    if (channel?.protocol === "jimeng") return [...JIMENG_IMAGE_MODELS];
     if (isMimoChannel(channel || { baseUrl: config.baseUrl })) return [...mimoModels];
     try {
         const response = await axios.get<{ data?: Array<{ id?: string }>; error?: { message?: string } }>(buildApiUrl(config.baseUrl, "/models"), {

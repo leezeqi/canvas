@@ -53,7 +53,6 @@ export type CanvasNodeMetadata = {
     mode?: string;
     negativePrompt?: string;
     generateAudio?: string;
-    characterOrientation?: string;
     watermark?: string;
     audioVoice?: string;
     audioFormat?: string;
@@ -71,7 +70,6 @@ export type CanvasNodeMetadata = {
     mimoVoiceDesignPrompt?: string;
     geminiTtsVoice?: string;
     mimoVoiceCloneAudioNodeId?: string;
-    referenceAudioNodeId?: string;
     references?: string[];
     naturalWidth?: number;
     naturalHeight?: number;
@@ -96,11 +94,6 @@ export type CanvasNodeMetadata = {
     videoTaskVideoId?: string;
     firstFrameNodeId?: string;
     lastFrameNodeId?: string;
-    multiShot?: string;
-    shotType?: string;
-    klingImageNodeIds?: string[];
-    klingMultiPrompt?: { textNodeId?: string; duration?: string }[];
-    klingElementList?: { name?: string; description?: string; nodeIds?: string[] }[];
     cameraControl?: CameraControlOptions;
     panoramaSourcePrompt?: string;
     panoramaFinalPrompt?: string;

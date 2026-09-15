@@ -18,10 +18,6 @@ export type LocalModelChannel = {
     models: string[];
 };
 
-export type VideoMultiPromptItem = { prompt: string; duration: string };
-export type VideoElementReference = { id: string; kind: "image" | "video" | "audio"; name: string; type: string; dataUrl?: string; url?: string; storageKey?: string; bytes?: number; width?: number; height?: number; durationMs?: number };
-export type VideoElementItem = { name: string; description: string; references: VideoElementReference[] };
-
 export type AiConfig = {
     channelMode: "remote" | "local";
     baseUrl: string;
@@ -49,14 +45,9 @@ export type AiConfig = {
     videoSeconds: string;
     videoMode: string;
     videoNegativePrompt: string;
-    videoMultiShot: string;
-    videoShotType: string;
-    videoMultiPrompt: VideoMultiPromptItem[];
-    videoElementList: VideoElementItem[];
     vquality: string;
     videoGenerateAudio: string;
     videoWatermark: string;
-    videoCharacterOrientation: string;
     systemPrompt: string;
     models: string[];
     imageModels: string[];
@@ -122,14 +113,9 @@ export const defaultConfig: AiConfig = {
     videoSeconds: "6",
     videoMode: "std",
     videoNegativePrompt: "",
-    videoMultiShot: "false",
-    videoShotType: "intelligence",
-    videoMultiPrompt: [{ prompt: "", duration: "1" }],
-    videoElementList: [{ name: "", description: "", references: [] }],
     vquality: "720",
     videoGenerateAudio: "false",
     videoWatermark: "false",
-    videoCharacterOrientation: "video",
     systemPrompt: "",
     models: [],
     imageModels: [],
@@ -321,10 +307,6 @@ function isTextModelName(model: string) {
 
 export function modelMatchesCapability(model: string, capability?: ModelCapability, protocol = "") {
     if (!capability) return true;
-    if (protocol === "autodl") {
-        if (capability === "audio") return model === "indextts2-v1";
-        return capability === "video" && (model.startsWith("minimax_h3_") || model === "wan2.2animate-v4-motion_retargeting");
-    }
     if (protocol === "gemini") {
         const value = model.toLowerCase();
         const video = /^models\/veo-|^veo-/.test(value);
@@ -445,14 +427,9 @@ export const useConfigStore = create<ConfigStore>()(
                         videoSeconds: config.videoSeconds || "6",
                         videoMode: config.videoMode || "std",
                         videoNegativePrompt: config.videoNegativePrompt || "",
-                        videoMultiShot: config.videoMultiShot || "false",
-                        videoShotType: config.videoShotType || "intelligence",
-                        videoMultiPrompt: Array.isArray(config.videoMultiPrompt) && config.videoMultiPrompt.length ? config.videoMultiPrompt : defaultConfig.videoMultiPrompt,
-                        videoElementList: Array.isArray(config.videoElementList) && config.videoElementList.length ? config.videoElementList : defaultConfig.videoElementList,
                         vquality: config.vquality || "720",
                         videoGenerateAudio: config.videoGenerateAudio || "false",
                         videoWatermark: config.videoWatermark || "false",
-                        videoCharacterOrientation: config.videoCharacterOrientation === "image" ? "image" : "video",
                         canvasImageCount: config.canvasImageCount || "1",
                         imageModels: filterChannelModelsByCapability(localChannels, "image"),
                         videoModels: filterChannelModelsByCapability(localChannels, "video"),
@@ -527,7 +504,7 @@ export function channelIdForActiveModel(config: AiConfig) {
     const channels = config.channelMode === "remote" ? config.publicChannels : normalizeLocalChannels(config);
     const selectedChannelId = config.model === config.imageModel ? config.imageChannelId : config.model === config.videoModel ? config.videoChannelId : config.model === config.audioModel ? config.audioChannelId : config.model === config.textModel ? config.textChannelId : "";
     const selectedChannel = channels.find((channel) => channel.id === selectedChannelId);
-    if (selectedChannel?.protocol === "gemini" || selectedChannel?.protocol === "autodl") return selectedChannelId;
+    if (selectedChannel?.protocol === "gemini") return selectedChannelId;
     if (!selectedChannel) {
         const geminiChannel = channels.find((channel) => channel.protocol === "gemini" && (channel.models || []).includes(config.model));
         if (geminiChannel) return geminiChannel.id || "";

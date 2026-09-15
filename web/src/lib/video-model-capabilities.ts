@@ -18,22 +18,7 @@ export function normalizeCogVideoX3Duration(value: string) {
 }
 
 export function supportsVideoFrameReferences(modelName: string, protocol = "") {
-    if (protocol === "autodl") return modelName === "minimax_h3_b99_002" || modelName === "minimax_h3_lightx2v";
     const model = modelKey(modelName);
-    if (protocol === "88api") {
-        return (
-            model === "sd2-5 720p" ||
-            model === "sd2-5 480p" ||
-            model === "sd2-0 720p" ||
-            model === "minimax-h3-768p" ||
-            model === "seedance-2-5-720p官方版" ||
-            model === "seedance-2-0-720p官方版" ||
-            model === "seedance-2-0-fast-720p官方版" ||
-            model === "wan3-0-video-720p" ||
-            model === "wan3-0-video-1080p" ||
-            model.startsWith("kling-3-0-turbo-")
-        );
-    }
     return (
         isAgnesVideoV25Model(model) ||
         isCogVideoX3Model(model) ||
@@ -55,6 +40,7 @@ export function supportsVideoFrameReferences(modelName: string, protocol = "") {
         model.includes("seedance-1-0") ||
         model === "happyhorse-1-1" ||
         (protocol === "gemini" && (model.startsWith("veo-3-1") || model.startsWith("veo3-1"))) ||
+        (protocol === "jimeng" && (model.includes("jimeng") || model.includes("vgfm"))) ||
         (model.includes("veo3-1") && model.includes("official")) ||
         model.includes("minimax-hailuo-02") ||
         model.includes("skyreels-v4") ||
@@ -66,7 +52,6 @@ export function supportsVideoFrameReferences(modelName: string, protocol = "") {
 
 export function supportsVideoAudioGeneration(modelName: string, protocol = "") {
     const model = modelKey(modelName);
-    if (protocol === "88api") return model === "veo-3-1" || model === "veo-3-1-fast" || model === "sd2-5 480p" || model === "sd2-5 720p" || model.startsWith("kling-3-0-turbo-");
     if (model.includes("motion-control")) return false;
     return (
         isCogVideoX3Model(model) ||

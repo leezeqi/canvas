@@ -7,7 +7,6 @@ import { Button } from "antd";
 
 import { ImageSettingsPanel, imageQualityLabel, imageSizeLabel } from "@/components/image-settings-panel";
 import { canvasThemes } from "@/lib/canvas-theme";
-import { isKIESeedreamLayerDecompositionModel } from "@/lib/kie-models";
 import { useThemeStore } from "@/stores/use-theme-store";
 import type { AiConfig } from "@/stores/use-config-store";
 
@@ -34,9 +33,8 @@ export function CanvasImageSettingsPopover({ config, onConfigChange, onOpenChang
     const quality = config.quality || "auto";
     const count = Math.max(1, Math.min(15, Math.floor(Math.abs(Number(config.count)) || 1)));
     const activeSize = config.size || "auto";
-    const layerDecomposition = isKIESeedreamLayerDecompositionModel(config.model);
-    const effectiveShowSize = showSize && !layerDecomposition;
-    const effectiveShowCount = showCount && !layerDecomposition;
+    const effectiveShowSize = showSize;
+    const effectiveShowCount = showCount;
     const updateOpen = (nextOpen: boolean) => {
         setOpen(nextOpen);
         onOpenChange?.(nextOpen);

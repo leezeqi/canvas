@@ -1,17 +1,14 @@
 import axios from "axios";
 
 import { dataUrlToFile, readFileAsDataUrl } from "@/lib/image-utils";
-import { isMiniMaxH3Config, normalizeMiniMaxH3Duration, normalizeMiniMaxH3Ratio, normalizeMiniMaxH3Resolution } from "@/lib/minimax-video";
+import { isMiniMaxH3Config, isMiniMaxHailuoConfig, normalizeMiniMaxH3Duration, normalizeMiniMaxH3Ratio, normalizeMiniMaxH3Resolution } from "@/lib/minimax-video";
 import { dataUrlToGeminiInlineData, geminiActionUrl, geminiDirectHeaders, geminiErrorMessage, geminiOperationUrl, isGeminiConfig, isGeminiVideoModel } from "@/lib/gemini";
 import { isGeminiVeo31Model, normalizeGeminiVideoDuration, normalizeGeminiVideoRatio, normalizeGeminiVideoResolution } from "@/lib/gemini-video";
 import { boolConfig, isSeedanceVideoConfig, normalizeSeedanceDuration, normalizeSeedanceRatio } from "@/lib/seedance-video";
-import { isKIEGrokVideoModel, isKIEKlingV3Config, kieKlingOmniVariant } from "./protocols/kling-models";
-import { autoDLBaseUrl, getAutoDLCapabilities } from "@/lib/autodl";
-import { fetchAutoDLWorkflow } from "./autodl";
 import { isAgnesVideoV25Model, isCogVideoX3Model, modelKey, normalizeCogVideoX3Duration, supportsVideoAudioGeneration } from "@/lib/video-model-capabilities";
 import { resolveMediaUrl, uploadMediaFile, uploadRemoteMediaToServer } from "@/services/file-storage";
 import { autoSyncToCloud, imageToDataUrl, resolveImageUrl } from "@/services/image-storage";
-import { buildApiUrl, channelIdForActiveModel, channelProtocolForConfig, directAIProviderForConfig, localChannelForActiveModel, type AiConfig, type VideoElementReference } from "@/stores/use-config-store";
+import { buildApiUrl, channelIdForActiveModel, channelProtocolForConfig, directAIProviderForConfig, localChannelForActiveModel, type AiConfig } from "@/stores/use-config-store";
 import { useUserStore } from "@/stores/use-user-store";
 import type { ReferenceImage } from "@/types/image";
 import type { ReferenceAudio, ReferenceVideo } from "@/types/media";
@@ -53,6 +50,9 @@ function aiVideoPollUrl(config: AiConfig, model: string, id: string) {
     }
     if (!usesAccountProxy(config) && isMiniMaxH3Config(config, model)) {
         return miniMaxApiUrl(config, `/v2/query/video_generation/${encodeURIComponent(id)}`);
+    }
+    if (!usesAccountProxy(config) && isMiniMaxHailuoConfig(config, model)) {
+        return miniMaxApiUrl(config, `/v1/query/video_generation?task_id=${encodeURIComponent(id)}`);
     }
     if (!usesAccountProxy(config) && isCogVideoX3Model(model)) {
         return aiApiUrl(config, `/async-result/${encodeURIComponent(id)}`);
@@ -109,6 +109,7 @@ export async function requestVideoGeneration(config: AiConfig, prompt: string, r
 
 export async function createVideoGenerationTask(config: AiConfig, prompt: string, references: ReferenceImage[] | VideoReferenceInput = [], onProgress?: VideoProgressHandler, options?: string | VideoTaskCreateOptions): Promise<CreatedVideoGenerationTask> {
     const model = config.model || config.videoModel;
+    if (!usesAccountProxy(config) && videoChannelProtocol(config, model) === "jimeng") throw new VideoRequestError("即梦渠道需要登录后通过服务端代理使用");
     const systemPrompt = (config.systemPrompts.video || config.systemPrompt).trim();
     const body = await createVideoRequestBody(config, model, systemPrompt ? `${systemPrompt}\n\n${prompt}` : prompt, normalizeVideoReferenceInput(references));
     const startedAt = Date.now();
@@ -228,9 +229,8 @@ function isGrok2APIVideoConfig(config: AiConfig, model: string) {
 
 async function cacheProtectedVideo(config: AiConfig, model: string, task: VideoResponse) {
     const url = task.video_url || task.url || "";
-    const needs88APIContent = videoChannelProtocol(config, model) === "88api" && !url;
     const needsGrokContent = isGrok2APIVideoConfig(config, model) && /\/v1\/videos\/[^/]+\/content(?:[?#]|$)/.test(url);
-    if (!isCompletedVideoStatus(task.status) || task.storageKey || (!needs88APIContent && !needsGrokContent)) return task;
+    if (!isCompletedVideoStatus(task.status) || task.storageKey || !needsGrokContent) return task;
     const taskId = task.task_id || task.id || task.video_id || "";
     const response = await fetch(`${aiApiUrl(config, `/videos/${encodeURIComponent(taskId)}/content`)}?model=${encodeURIComponent(model)}`, { headers: aiHeaders(config) });
     if (!response.ok) throw new VideoRequestError(`视频内容下载失败：${response.status}`, task);
@@ -280,71 +280,14 @@ async function createAgnesVideoV25RequestBody(config: AiConfig, model: string, p
     return body;
 }
 
-async function create88APIVideoRequestBody(config: AiConfig, model: string, prompt: string, input: Required<VideoReferenceInput>) {
-    const [images, videos, audios, firstFrame, lastFrame] = await Promise.all([
-        Promise.all(input.references.map(referenceTo88APIUrl)),
-        Promise.all(input.videoReferences.map(referenceTo88APIUrl)),
-        Promise.all(input.audioReferences.map(referenceTo88APIUrl)),
-        input.firstFrame ? referenceTo88APIUrl(input.firstFrame) : Promise.resolve(""),
-        input.lastFrame ? referenceTo88APIUrl(input.lastFrame) : Promise.resolve(""),
-    ]);
-    const key = modelKey(model);
-    const veo = key.includes("veo");
-    const geminiOmni = key.includes("gemini-omni");
-    if (geminiOmni && videos.length > 1) throw new VideoRequestError("88API Gemini Omni 仅支持一个参考视频");
-
-    const metadata: Record<string, unknown> = {};
-    if (firstFrame) metadata.firstFrame = firstFrame;
-    if (lastFrame) metadata.lastFrame = lastFrame;
-    if (!geminiOmni && videos.length) metadata.referenceVideos = videos;
-    if (audios.length) metadata.referenceAudios = audios;
-
-    const body: Record<string, unknown> = {
-        model,
-        prompt,
-        seconds: normalizeVideoSecondsForModel(model, config.videoSeconds),
-        ...(supportsVideoAudioGeneration(model, "88api")
-            ? { generate_audio: boolConfig(config.videoGenerateAudio, false) }
-            : {}),
-    };
-    if (images.length) body.images = images;
-    if (geminiOmni && videos[0]) body.video = videos[0];
-    if (config.videoNegativePrompt.trim()) body.negative_prompt = config.videoNegativePrompt.trim();
-    if (veo) {
-        if (body.negative_prompt) metadata.negativePrompt = body.negative_prompt;
-        metadata.generateAudio = body.generate_audio;
-        delete body.negative_prompt;
-        delete body.generate_audio;
-    }
-    if (Object.keys(metadata).length) body.metadata = metadata;
-    return body;
-}
-
 async function createVideoRequestBody(config: AiConfig, model: string, prompt: string, input: Required<VideoReferenceInput>) {
-    if (videoChannelProtocol(config, model) === "autodl") {
-        const capabilities = getAutoDLCapabilities(await fetchAutoDLWorkflow(autoDLBaseUrl(config, model), model));
-        if (!capabilities) throw new VideoRequestError("当前 AutoDL 工作流尚未适配");
-        const { autoDLReferenceURL } = await import("./direct-ai");
-        const [images, videos, audios, firstFrame, lastFrame] = await Promise.all([
-            Promise.all((capabilities.imageMax ? input.references : []).map(autoDLReferenceURL)),
-            Promise.all((capabilities.videoMax ? input.videoReferences : []).map(autoDLReferenceURL)),
-            Promise.all((capabilities.audioMax ? input.audioReferences : []).map(autoDLReferenceURL)),
-            capabilities.firstFrame && input.firstFrame ? autoDLReferenceURL(input.firstFrame) : Promise.resolve(""),
-            capabilities.lastFrame && input.lastFrame ? autoDLReferenceURL(input.lastFrame) : Promise.resolve(""),
-        ]);
-        return {
-            model, prompt, seconds: config.videoSeconds, size: config.size, resolution_name: config.vquality,
-            "input_reference[]": images, "video_reference[]": videos, "audio_reference[]": audios,
-            ...(firstFrame ? { first_frame_url: firstFrame } : {}),
-            ...(lastFrame ? { last_frame_url: lastFrame } : {}),
-        };
-    }
-    if (videoChannelProtocol(config, model) === "88api") return create88APIVideoRequestBody(config, model, prompt, input);
     if (videoChannelProtocol(config, model) === "ark") return createArkSeedanceVideoRequestBody(config, model, prompt, input);
+    if (videoChannelProtocol(config, model) === "jimeng") return createJimengVideoRequestBody(config, model, prompt, input);
     const size = normalizeVideoSize(config.size);
     if (isGeminiVideoModel(model) && isGeminiConfig(config, model)) return createGeminiVeoRequestBody(config, model, prompt, input);
     if (isGrok2APIVideoConfig(config, model)) return createGrok2APIVideoRequestBody(config, model, prompt, input);
     if (isMiniMaxH3Config(config, model)) return createMiniMaxH3VideoRequestBody(config, model, prompt, input);
+    if (isMiniMaxHailuoConfig(config, model)) return createMiniMaxHailuoVideoRequestBody(config, model, prompt, input);
     if (isCogVideoX3Model(model)) return createCogVideoX3RequestBody(config, model, prompt, input);
     if (isAgnesVideoV25Model(model)) return createAgnesVideoV25RequestBody(config, model, prompt, input);
     if (isAgnesVideoModel(model)) {
@@ -367,63 +310,27 @@ async function createVideoRequestBody(config: AiConfig, model: string, prompt: s
         return body;
     }
 
-    const klingV26 = isAPIMartKlingV26VideoConfig(config, model);
-    const apimartKlingV3 = isAPIMartKlingV3VideoConfig(config, model);
-    const apimartMotionControl = isAPIMartKlingMotionControlVideoConfig(config, model);
-    const kieKlingV3 = isKIEKlingV3Config(config, model);
-    const kieKlingOmni = kieKlingOmniVariant(config, model);
-    const kieMotionControl = isKIEKlingMotionControlVideoConfig(config, model);
-    const motionControl = apimartMotionControl || kieMotionControl;
-    const klingV3 = apimartKlingV3 || kieKlingV3;
-    const kling = klingV26 || klingV3;
     const body = new FormData();
     body.append("model", model);
     body.append("prompt", prompt);
-    if (kling) {
-        body.append("mode", klingV3 ? normalizeKlingV3Mode(config.videoMode) : normalizeKlingV26Mode(config.videoMode));
-        body.append("duration", klingV3 ? normalizeKlingV3Duration(config.videoSeconds) : normalizeKlingV26Duration(config.videoSeconds));
-        body.append("aspect_ratio", normalizeKlingV26AspectRatio(config.size));
-        if (!kieKlingV3 && config.videoNegativePrompt?.trim()) body.append("negative_prompt", config.videoNegativePrompt.trim());
-        if (klingV3 && kieKlingOmni !== "transformation" && boolConfig(config.videoMultiShot, false)) {
-            body.append("multi_shot", "true");
-            const supportsSmartShots = !kieKlingV3 || kieKlingOmni === "text-to-video" || kieKlingOmni === "image-to-video";
-            if (!supportsSmartShots) {
-                body.append("multi_prompt", JSON.stringify(normalizeKIEKlingMultiPrompt(config.videoMultiPrompt)));
-            } else {
-                const shotType = normalizeKlingShotType(config.videoShotType);
-                body.append("shot_type", shotType);
-                if (shotType === "customize") body.append("multi_prompt", JSON.stringify(kieKlingV3 ? normalizeKIEKlingMultiPrompt(config.videoMultiPrompt) : normalizeKlingMultiPrompt(config.videoMultiPrompt)));
-            }
-        }
-        if (klingV3 && kieKlingOmni !== "transformation") {
-            const elementList = await (kieKlingV3 ? normalizeKIEKlingElementList(config.videoElementList) : normalizeKlingElementList(config.videoElementList));
-            if (elementList.length) body.append("element_list", JSON.stringify(elementList));
-        }
-    } else if (apimartMotionControl) {
-        body.append("mode", normalizeAPIMartKlingMotionControlMode(config.vquality));
-    } else {
-        if (!kieMotionControl && !isGeminiOmniFlashVideoModel(model)) {
-            const seconds = isSeedanceVideoConfig(config)
-                ? String(normalizeSeedanceDuration(config.videoSeconds, modelKey(model).includes("seedance-2-5") ? 30 : 15))
-                : normalizeVideoSecondsForModel(model, config.videoSeconds);
-            body.append("seconds", seconds);
-        }
-        if (isSeedanceVideoConfig(config)) body.append("size", normalizeSeedanceRatio(config.size));
-        else if (size) body.append("size", size);
-        body.append("resolution_name", normalizeVideoResolution(config.vquality));
-        if (isKIEGrokVideoModel(config, model)) body.append("mode", normalizeGrokVideoMode(config.videoMode));
-        else body.append("preset", "normal");
+    if (!isGeminiOmniFlashVideoModel(model)) {
+        const seconds = isSeedanceVideoConfig(config)
+            ? String(normalizeSeedanceDuration(config.videoSeconds, modelKey(model).includes("seedance-2-5") ? 30 : 15))
+            : normalizeVideoSecondsForModel(model, config.videoSeconds);
+        body.append("seconds", seconds);
     }
-    if (motionControl) body.append("character_orientation", normalizeCharacterOrientation(config.videoCharacterOrientation));
+    if (isSeedanceVideoConfig(config)) body.append("size", normalizeSeedanceRatio(config.size));
+    else if (size) body.append("size", size);
+    body.append("resolution_name", normalizeVideoResolution(config.vquality));
+    body.append("preset", "normal");
     if (supportsVideoAudioGeneration(model)) body.append("video_generate_audio", String(boolConfig(config.videoGenerateAudio, false)));
-    const imageReferenceLimit = kieKlingOmni === "text-to-video" ? 0 : kieKlingOmni === "reference-to-video" ? input.references.length : kieKlingOmni === "transformation" ? 4 : kling ? 2 : 9;
-    const files = await Promise.all(input.references.slice(0, imageReferenceLimit).map(imageReferenceToFormValue));
+    const files = await Promise.all(input.references.slice(0, 9).map(imageReferenceToFormValue));
     files.forEach((file) => body.append("input_reference[]", file));
-    if (!kling && input.firstFrame) body.append("first_frame_url", await imageReferenceToFormValue(input.firstFrame));
-    if (!kling && input.lastFrame) body.append("last_frame_url", await imageReferenceToFormValue(input.lastFrame));
-    const videoFiles = kling && kieKlingOmni !== "reference-to-video" && kieKlingOmni !== "transformation" ? [] : await Promise.all(input.videoReferences.slice(0, kieKlingOmni ? 1 : input.videoReferences.length).map(mediaReferenceToFormValue));
+    if (input.firstFrame) body.append("first_frame_url", await imageReferenceToFormValue(input.firstFrame));
+    if (input.lastFrame) body.append("last_frame_url", await imageReferenceToFormValue(input.lastFrame));
+    const videoFiles = await Promise.all(input.videoReferences.map(mediaReferenceToFormValue));
     videoFiles.forEach((file) => body.append("video_reference[]", file));
-    const audioFiles = kling ? [] : await Promise.all(input.audioReferences.map(mediaReferenceToFormValue));
+    const audioFiles = await Promise.all(input.audioReferences.map(mediaReferenceToFormValue));
     audioFiles.forEach((file) => body.append("audio_reference[]", file));
     return body;
 }
@@ -522,127 +429,51 @@ function normalizeCogVideoX3Size(resolutionValue: string, sizeValue: string) {
     return resolution === "1080p" ? "1920x1080" : "1280x720";
 }
 
-function isAPIMartKlingV26VideoConfig(config: AiConfig, model: string) {
-    return isAPIMartKlingVideoConfig(config, model, "kling-v2-6");
-}
-
-function isAPIMartKlingV3VideoConfig(config: AiConfig, model: string) {
-    return isAPIMartKlingVideoConfig(config, model, "kling-v3");
-}
-
-function isAPIMartKlingMotionControlVideoConfig(config: AiConfig, model: string) {
-    return isAPIMartKlingVideoConfig(config, model, "kling-v2-6-motion-control") || isAPIMartKlingVideoConfig(config, model, "kling-v3-motion-control");
-}
-
-function isKIEKlingMotionControlVideoConfig(config: AiConfig, model: string) {
-    return isKIEKlingVideoConfig(config, model, "kling-2-6-motion-control") || isKIEKlingVideoConfig(config, model, "kling-3-0-motion-control");
-}
-
-function isAPIMartKlingVideoConfig(config: AiConfig, model: string, key: string) {
-    return modelKey(model) === key && videoChannelProtocol(config, model) === "apimart";
-}
-
-function isKIEKlingVideoConfig(config: AiConfig, model: string, key: string) {
-    return modelKey(model) === key && videoChannelProtocol(config, model) === "kie";
-}
-
 function videoChannelProtocol(config: AiConfig, model: string) {
     return channelProtocolForConfig({ ...config, model, videoModel: model });
 }
 
-function normalizeCharacterOrientation(value: string | undefined) {
-    return value === "image" ? "image" : "video";
+async function createJimengVideoRequestBody(config: AiConfig, model: string, prompt: string, input: Required<VideoReferenceInput>) {
+    if (input.videoReferences.length || input.audioReferences.length) throw new VideoRequestError("即梦视频暂不支持参考视频或参考音频");
+    if (input.lastFrame && !input.firstFrame) throw new VideoRequestError("请先添加首帧图片");
+    const frames = [input.firstFrame, input.lastFrame].filter((value): value is ReferenceImage => Boolean(value));
+    const references = frames.length ? frames : input.references;
+    const images = await Promise.all(references.map(imageToDataUrl));
+    const base = model.trim() || "jimeng_vgfm_t2v_l20";
+    const reqKey = base === "jimeng_vgfm_t2v_l20" && images.length ? "jimeng_vgfm_i2v_l20" : base;
+    const isV3 = reqKey.includes("v30");
+    const seconds = Math.floor(Number(config.videoSeconds) || 5);
+    const body: Record<string, unknown> = { model: reqKey, prompt, images };
+    if (config.size) body.size = config.size;
+    if (isV3) body.frames = seconds >= 10 ? 241 : 121;
+    else body.seconds = 5;
+    return body;
 }
 
-function normalizeKlingV26Mode(value: string) {
-    return value === "pro" ? "pro" : "std";
+async function createMiniMaxHailuoVideoRequestBody(config: AiConfig, model: string, prompt: string, input: Required<VideoReferenceInput>) {
+    const modern = ["minimax-hailuo-2.3", "minimax-hailuo-2.3-fast", "minimax-hailuo-02"].includes(model.trim().toLowerCase());
+    const requestedSeconds = Math.floor(Number(config.videoSeconds) || 6);
+    const duration = model.trim().toLowerCase() === "minimax-hailuo-01" ? 6 : modern ? (requestedSeconds === 10 ? 10 : 6) : 6;
+    const body: Record<string, unknown> = {
+        model,
+        prompt,
+        duration,
+        resolution: hailuoResolution(config.vquality, modern),
+    };
+    const images = await Promise.all(input.references.map(imageToDataUrl));
+    if (input.firstFrame) body.first_frame_image = await imageToDataUrl(input.firstFrame);
+    if (input.lastFrame) body.last_frame_image = await imageToDataUrl(input.lastFrame);
+    if (images.length) body.subject_reference = images;
+    if (input.videoReferences.length) body.reference_video = (await Promise.all(input.videoReferences.map(mediaReferenceToFormValue))).map((value) => typeof value === "string" ? value : "");
+    return body;
 }
 
-function normalizeAPIMartKlingMotionControlMode(value: string) {
-    return normalizeVideoResolution(value) === "1080p" ? "pro" : "std";
-}
-
-function normalizeKlingV26Duration(value: string) {
-    return String(value).trim() === "10" ? "10" : "5";
-}
-
-function normalizeKlingV3Mode(value: string) {
-    return value === "4k" ? "4k" : value === "pro" ? "pro" : "std";
-}
-
-function normalizeGrokVideoMode(value: string) {
-    return value === "fun" || value === "spicy" ? value : "normal";
-}
-
-function normalizeKlingV3Duration(value: string) {
-    const seconds = Math.floor(Number(value) || 3);
-    return String(Math.max(3, Math.min(15, seconds)));
-}
-
-function normalizeKlingShotType(value: string) {
-    return value === "customize" ? "customize" : "intelligence";
-}
-
-function normalizeKlingMultiPrompt(value: AiConfig["videoMultiPrompt"] | undefined) {
-    const items = Array.isArray(value) && value.length ? value : [{ prompt: "", duration: "1" }];
-    return items.map((item, index) => ({ index: index + 1, prompt: item?.prompt || "", duration: normalizeKlingMultiPromptDuration(item?.duration) }));
-}
-
-function normalizeKIEKlingMultiPrompt(value: AiConfig["videoMultiPrompt"] | undefined) {
-    const items = Array.isArray(value) && value.length ? value : [{ prompt: "", duration: "1" }];
-    return items.map((item) => ({ prompt: item?.prompt || "", duration: normalizeKlingMultiPromptDuration(item?.duration) }));
-}
-
-function normalizeKlingMultiPromptDuration(value: string | undefined) {
-    const duration = Math.floor(Number(value) || 1);
-    return Math.max(1, Math.min(15, duration));
-}
-
-async function normalizeKlingElementList(value: AiConfig["videoElementList"] | undefined) {
-    const items = Array.isArray(value) ? value.slice(0, 3) : [];
-    const result = [];
-    for (const item of items) {
-        const refs = Array.isArray(item?.references) ? item.references.slice(0, 4) : [];
-        if (!refs.length) continue;
-        const urls = (await Promise.all(refs.map(elementReferenceToInputUrl))).filter(Boolean).slice(0, 4);
-        if (!urls.length) continue;
-        result.push({ name: item.name || "", description: item.description || "", element_input_urls: urls });
-    }
-    return result;
-}
-
-async function normalizeKIEKlingElementList(value: AiConfig["videoElementList"] | undefined) {
-    const items = Array.isArray(value) ? value.slice(0, 3) : [];
-    const result = [];
-    for (const item of items) {
-        const refs = Array.isArray(item?.references) ? item.references.slice(0, 4) : [];
-        if (!refs.length) continue;
-        const references = (await Promise.all(refs.map(async (reference) => ({ kind: reference.kind, url: await elementReferenceToInputUrl(reference) })))).filter((reference) => reference.url).slice(0, 4);
-        if (!references.length) continue;
-        result.push({ name: item.name || "", description: item.description || "", references });
-    }
-    return result;
-}
-
-async function elementReferenceToInputUrl(reference: VideoElementReference) {
-    if (reference.kind === "image") {
-        const resolvedUrl = await resolveImageUrl(reference.storageKey, "");
-        for (const url of [reference.url, resolvedUrl]) {
-            const publicUrl = publicHttpUrl(url);
-            if (publicUrl) return publicUrl;
-        }
-        if (reference.dataUrl) return reference.dataUrl;
-        return imageToDataUrl({ dataUrl: reference.dataUrl || reference.url || resolvedUrl, storageKey: reference.storageKey });
-    }
-    const resolvedUrl = await resolveMediaUrl(reference.storageKey, reference.url || "");
-    return publicHttpUrl(resolvedUrl) || publicHttpUrl(reference.url) || resolvedUrl || reference.url || "";
-}
-
-function normalizeKlingV26AspectRatio(value: string) {
-    const normalized = String(value || "").trim().toLowerCase();
-    if (["9:16", "720x1280", "1080x1920"].includes(normalized)) return "9:16";
-    if (["1:1", "1024x1024", "1080x1080"].includes(normalized)) return "1:1";
-    return "16:9";
+function hailuoResolution(value: string, modern: boolean) {
+    const normalized = value.trim().toLowerCase();
+    if (normalized.includes("1080")) return modern ? "1080P" : "720P";
+    if (normalized.includes("512")) return "512P";
+    if (normalized.includes("2k")) return "2K";
+    return modern ? "768P" : "720P";
 }
 
 function normalizeVideoReferenceInput(input: ReferenceImage[] | VideoReferenceInput): Required<VideoReferenceInput> {
@@ -676,17 +507,6 @@ async function mediaReferenceToFormValue(media: ReferenceVideo | ReferenceAudio)
     const publicUrl = publicHttpUrl(resolvedUrl) || publicHttpUrl(media.url);
     if (publicUrl) return publicUrl;
     return mediaReferenceToFile(media);
-}
-
-async function referenceTo88APIUrl(reference: ReferenceImage | ReferenceVideo | ReferenceAudio) {
-    const resolvedUrl = "dataUrl" in reference
-        ? await resolveImageUrl(reference.storageKey, reference.url || reference.dataUrl)
-        : await resolveMediaUrl(reference.storageKey, reference.url);
-    for (const value of [reference.url, resolvedUrl, "dataUrl" in reference ? reference.dataUrl : ""]) {
-        const url = publicHttpUrl(value);
-        if (url) return url;
-    }
-    throw new VideoRequestError("88API 参考素材必须具有可公开访问的网络地址，请先配置对象存储或上传素材");
 }
 
 async function imageToAgnesReference(image: ReferenceImage) {

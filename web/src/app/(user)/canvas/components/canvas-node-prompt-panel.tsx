@@ -5,8 +5,6 @@ import { ArrowUp, LoaderCircle, Maximize2 } from "lucide-react";
 import { Button, Modal, Tooltip } from "antd";
 
 import { ModelPicker } from "@/components/model-picker";
-import { useAutoDLWorkflow } from "@/hooks/use-autodl-workflow";
-import { getAutoDLCapabilities, isAutoDLConfig } from "@/lib/autodl";
 import { defaultConfig, resolveModelForCapability, useConfigStore, useEffectiveConfig, type AiConfig } from "@/stores/use-config-store";
 import { CreditSymbol, requestCreditCost } from "@/constant/credits";
 import { canvasThemes } from "@/lib/canvas-theme";
@@ -48,7 +46,6 @@ export function CanvasNodePromptPanel({ node, isRunning, onPromptChange, onConfi
     const theme = canvasThemes[useThemeStore((state) => state.theme)];
     const mode = defaultMode(node.type);
     const config = buildNodeConfig(globalConfig, node, mode);
-    const { data: autodlWorkflow } = useAutoDLWorkflow(config, mode === "video" ? config.model : "");
     const isPanorama = isPanoramaNodeType(node.type);
     const hasTextContent = node.type === CanvasNodeType.Text && Boolean(node.metadata?.content?.trim());
     const hasImageContent = isCanvasImageNodeType(node.type) && Boolean(node.metadata?.content);
@@ -66,7 +63,7 @@ export function CanvasNodePromptPanel({ node, isRunning, onPromptChange, onConfi
         onPromptChange(node.id, value);
     };
 
-    const canSubmit = Boolean(prompt.trim()) || (mode === "video" && isAutoDLConfig(config) && getAutoDLCapabilities(autodlWorkflow)?.promptRequired === false) || (isPanorama && (hasImageContent || mentionReferences.length > 0));
+    const canSubmit = Boolean(prompt.trim()) || (isPanorama && (hasImageContent || mentionReferences.length > 0));
 
     const submit = () => {
         const text = prompt.trim();
@@ -117,7 +114,7 @@ export function CanvasNodePromptPanel({ node, isRunning, onPromptChange, onConfi
                     ) : mode === "video" ? (
                         <>
                             <ModelPicker className="!w-[180px] !min-w-0 !shrink-0" config={config} value={config.model} channelId={config.videoChannelId} onChange={(model, channelId) => onConfigChange(node.id, { model, channelId })} capability="video" onMissingConfig={() => openConfigDialog(true)} />
-                            <CanvasVideoSettingsPopover config={config} buttonClassName="!h-10 !w-[148px] !shrink-0 !justify-start !rounded-full !px-3" frameOptions={videoFrameOptions} resourceOptions={videoResourceOptions} metadata={node.metadata} firstFrameNodeId={node.metadata?.firstFrameNodeId} lastFrameNodeId={node.metadata?.lastFrameNodeId} onFrameChange={(patch) => onConfigChange(node.id, patch)} onMetadataChange={(patch) => onConfigChange(node.id, patch)} onConfigChange={(key, value) => onConfigChange(node.id, videoConfigPatch(key, value))} />
+                            <CanvasVideoSettingsPopover config={config} buttonClassName="!h-10 !w-[148px] !shrink-0 !justify-start !rounded-full !px-3" frameOptions={videoFrameOptions} firstFrameNodeId={node.metadata?.firstFrameNodeId} lastFrameNodeId={node.metadata?.lastFrameNodeId} onFrameChange={(patch) => onConfigChange(node.id, patch)} onConfigChange={(key, value) => onConfigChange(node.id, videoConfigPatch(key, value))} />
                         </>
                     ) : mode === "audio" ? (
                         <>
@@ -186,14 +183,11 @@ function buildNodeConfig(globalConfig: AiConfig, node: CanvasNodeData, mode: Can
         audioChannelId,
         quality: node.metadata?.quality || globalConfig.quality || defaultConfig.quality,
         size: isPanoramaNodeType(node.type) ? PANORAMA_IMAGE_SIZE : node.metadata?.size || (mode === "video" ? globalConfig.videoSize || defaultConfig.videoSize : globalConfig.size || defaultConfig.size),
-        videoSeconds: isAutoDLConfig({ ...globalConfig, activeChannelId, videoChannelId }, node.metadata?.model || defaultModel) ? node.metadata?.seconds ?? globalConfig.videoSeconds : node.metadata?.seconds || globalConfig.videoSeconds || defaultConfig.videoSeconds,
+        videoSeconds: node.metadata?.seconds || globalConfig.videoSeconds || defaultConfig.videoSeconds,
         vquality: node.metadata?.vquality || globalConfig.vquality || defaultConfig.vquality,
         videoMode: node.metadata?.mode || globalConfig.videoMode || defaultConfig.videoMode,
         videoNegativePrompt: node.metadata?.negativePrompt || globalConfig.videoNegativePrompt || defaultConfig.videoNegativePrompt,
-        videoMultiShot: node.metadata?.multiShot || globalConfig.videoMultiShot || defaultConfig.videoMultiShot,
-        videoShotType: node.metadata?.shotType || globalConfig.videoShotType || defaultConfig.videoShotType,
         videoGenerateAudio: node.metadata?.generateAudio || globalConfig.videoGenerateAudio || defaultConfig.videoGenerateAudio,
-        videoCharacterOrientation: node.metadata?.characterOrientation || globalConfig.videoCharacterOrientation || defaultConfig.videoCharacterOrientation,
         videoWatermark: node.metadata?.watermark || globalConfig.videoWatermark || defaultConfig.videoWatermark,
         audioVoice: node.metadata?.audioVoice || globalConfig.audioVoice || defaultConfig.audioVoice,
         audioFormat: node.metadata?.audioFormat || globalConfig.audioFormat || defaultConfig.audioFormat,
@@ -225,10 +219,7 @@ function videoConfigPatch(key: keyof AiConfig, value: string) {
     if (key === "videoSeconds") return { seconds: value };
     if (key === "videoMode") return { mode: value };
     if (key === "videoNegativePrompt") return { negativePrompt: value };
-    if (key === "videoMultiShot") return { multiShot: value };
-    if (key === "videoShotType") return { shotType: value };
     if (key === "videoGenerateAudio") return { generateAudio: value };
-    if (key === "videoCharacterOrientation") return { characterOrientation: value };
     if (key === "videoWatermark") return { watermark: value };
     return { [key]: value };
 }

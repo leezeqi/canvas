@@ -86,10 +86,6 @@ func proxyAIVideoTaskRequest(w http.ResponseWriter, r *http.Request) {
 	body, contentType, err = normalizeVideoCreateBody(body, contentType, modelName, channel, upstreamPath)
 	if err != nil {
 		log.Printf("AI video normalize request failed: model=%s err=%v", modelName, err)
-		if service.IsAutoDLChannel(channel) {
-			Fail(w, err.Error())
-			return
-		}
 		Fail(w, "AI 接口请求失败")
 		return
 	}
@@ -139,7 +135,7 @@ func proxyAIVideoTaskRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	transformed := transformVideoCreatePayload(payload, request, channel, modelName)
-	if message := readVideoCreateErrorMessage(payload, transformed, channel, modelName); message != "" {
+	if message := readVideoCreateErrorMessage(payload, transformed); message != "" {
 		if credits > 0 {
 			refundVideoCredits(user.ID, modelName, credits, upstreamPath)
 		}
@@ -292,11 +288,20 @@ func pollVideoTaskFromUpstream(task model.VideoTask) (service.VideoTaskPollUpdat
 	}
 	endpoint := "/videos/" + pollID
 	upstreamPath := resolveAIProxyPath(channel, task.Model, endpoint)
-	request, err := http.NewRequest(http.MethodGet, resolveAIProxyURL(channel, task.Model, upstreamPath), nil)
+	method, pollBody, pollContentType := http.MethodGet, []byte(nil), ""
+	for _, adapter := range builtinAIProtocols {
+		if adapter.videoPoll == nil { continue }
+		if resolvedMethod, resolvedPath, body, contentType, ok := adapter.videoPoll(channel, task.Model, pollID, task.RequestBody); ok {
+			method, upstreamPath, pollBody, pollContentType = resolvedMethod, resolvedPath, body, contentType
+			break
+		}
+	}
+	request, err := http.NewRequest(method, resolveAIProtocolPollURL(channel, task.Model, upstreamPath), bytes.NewReader(pollBody))
 	if err != nil {
 		return service.VideoTaskPollUpdate{}, err
 	}
 	service.SetModelChannelAuthHeader(request, channel)
+	if pollContentType != "" { request.Header.Set("Content-Type", pollContentType) }
 	startedAt := time.Now()
 	logContext := aiLogContext{
 		StartedAt:       startedAt,
@@ -329,7 +334,7 @@ func pollVideoTaskFromUpstream(task model.VideoTask) (service.VideoTaskPollUpdat
 	if parsed.Status == "failed" && parsed.Error == "" {
 		parsed.Error = firstNonEmpty(parsed.ErrorDetail, "视频任务生成失败")
 	}
-	if errMessage := readVideoStatusErrorMessage(payload, transformed, channel, task.Model); errMessage != "" {
+	if errMessage := readVideoStatusErrorMessage(payload, transformed); errMessage != "" {
 		if parsed.Error == "" {
 			parsed.Error = errMessage
 		}
@@ -408,12 +413,16 @@ func transformGeminiVideoTaskResponse(payload []byte) ([]byte, bool) {
 	return transformed, err == nil
 }
 
-func readVideoCreateErrorMessage(raw []byte, transformed []byte, channel model.ModelChannel, modelName string) string {
-	return firstNonEmpty(readAIProtocolVideoError(raw, channel, modelName, false), readProviderPayloadError(raw), readNormalizedVideoError(transformed))
+func readVideoCreateErrorMessage(raw []byte, transformed []byte) string {
+	return firstNonEmpty(readProviderPayloadError(raw), readNormalizedVideoError(transformed))
 }
 
-func readVideoStatusErrorMessage(raw []byte, transformed []byte, channel model.ModelChannel, modelName string) string {
-	return firstNonEmpty(readAIProtocolVideoError(raw, channel, modelName, true), readProviderPayloadError(raw), readNormalizedVideoError(transformed))
+func resolveAIProtocolPollURL(channel model.ModelChannel, modelName string, path string) string {
+	return resolveAIProxyURL(channel, modelName, path)
+}
+
+func readVideoStatusErrorMessage(raw []byte, transformed []byte) string {
+	return firstNonEmpty(readProviderPayloadError(raw), readNormalizedVideoError(transformed))
 }
 
 type parsedVideoTaskPayload struct {

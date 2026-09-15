@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"errors"
 	"net/http"
 	"net/url"
 	"strings"
@@ -36,45 +35,15 @@ type aiProtocolAdapter struct {
 	prepare       func(aiProtocolRequest) (aiProtocolRequest, bool, error)
 	copyResponse  func(http.ResponseWriter, *http.Response, *http.Request, model.ModelChannel, aiLogContext, func()) bool
 	videoResponse func([]byte, *http.Request, model.ModelChannel, string, bool) ([]byte, bool)
-	videoError    func([]byte, model.ModelChannel, string, bool) string
 	videoContent  func(http.ResponseWriter, *http.Request, string) bool
 	videoID       func(string, string) bool
-	allImages     func(string) bool
 	uploads       func(model.ModelChannel, map[string]bool) (map[string]directAIUpload, error)
+	videoPoll     func(model.ModelChannel, string, string, string) (string, string, []byte, string, bool)
 }
 
 // HTTP 混合钩子留在原 handler 包边界，避免 service 反向依赖 handler。
 // 表只初始化一次；每阶段只执行自身钩子，bool 表示停止匹配，不表示字段是否改变。
 var builtinAIProtocols = []aiProtocolAdapter{
-	{
-		id: service.ModelChannelProtocolAutoDL,
-		path: func(channel model.ModelChannel, modelName string, path string) (string, bool) {
-			if !service.IsAutoDLChannel(channel) {
-				return path, false
-			}
-			if path == "/videos" || path == "/audio/speech" {
-				return service.AutoDLTaskPath(modelName, false), true
-			}
-			if strings.HasPrefix(path, "/videos/") && !strings.HasSuffix(path, "/content") {
-				return service.AutoDLTaskPath(strings.TrimPrefix(path, "/videos/"), true), true
-			}
-			return path, true
-		},
-		prepare: prepareAutoDLRequest,
-		copyResponse: copyAutoDLResponse,
-		videoResponse: func(payload []byte, _ *http.Request, channel model.ModelChannel, _ string, _ bool) ([]byte, bool) {
-			if !service.IsAutoDLChannel(channel) {
-				return nil, false
-			}
-			return transformAutoDLVideoResponse(payload), true
-		},
-		uploads: func(_ model.ModelChannel, kinds map[string]bool) (map[string]directAIUpload, error) {
-			if len(kinds) > 0 {
-				return nil, errors.New("AutoDL 参考素材请使用现有云存储上传后的地址")
-			}
-			return nil, nil
-		},
-	},
 	{
 		id:           service.ModelChannelProtocolGemini,
 		videoContent: serveGeminiVideoTaskContent,
@@ -138,26 +107,36 @@ var builtinAIProtocols = []aiProtocolAdapter{
 	{
 		id: service.ModelChannelProtocolMiniMax,
 		path: func(channel model.ModelChannel, modelName string, path string) (string, bool) {
-			if !isMiniMaxH3Channel(channel, modelName) {
+			if !isMiniMaxVideoModel(channel, modelName) {
 				return path, false
 			}
-			if path == "/videos" {
+			if path == "/videos" && service.IsMiniMaxH3ModelName(modelName) {
 				return "/v2/video_generation", true
 			}
+			if path == "/videos" && service.IsMiniMaxHailuoModelName(modelName) { return "/v1/video_generation", true }
 			if strings.HasPrefix(path, "/videos/") && !strings.HasSuffix(path, "/content") {
 				taskID := strings.TrimSpace(strings.TrimPrefix(path, "/videos/"))
 				if taskID != "" && !strings.Contains(taskID, "/") {
-					return "/v2/query/video_generation/" + url.PathEscape(taskID), true
+					if service.IsMiniMaxH3ModelName(modelName) { return "/v2/query/video_generation/" + url.PathEscape(taskID), true }
+					return "/v1/query/video_generation?task_id=" + url.QueryEscape(taskID), true
 				}
 			}
 			return path, true
 		},
 		videoResponse: func(payload []byte, request *http.Request, channel model.ModelChannel, modelName string, status bool) ([]byte, bool) {
-			if status && isMiniMaxH3Channel(channel, modelName) && strings.Contains(request.URL.Path, "/v2/query/video_generation/") {
-				return transformMiniMaxVideoTaskResponse(payload)
+			if status && isMiniMaxVideoModel(channel, modelName) && (strings.Contains(request.URL.Path, "/v2/query/video_generation/") || strings.Contains(request.URL.Path, "/v1/query/video_generation")) {
+				return transformMiniMaxVideoTaskResponse(payload, request)
 			}
 			return nil, false
 		},
+	},
+	{
+		id: service.ModelChannelProtocolJimeng,
+		path: jimengProtocolPath,
+		prepare: prepareJimengProtocolRequest,
+		copyResponse: copyJimengImageResponse,
+		videoResponse: transformJimengVideoPayload,
+		videoPoll: jimengVideoPollRequest,
 	},
 	{
 		id: "model:cogvideox3",
@@ -175,140 +154,6 @@ var builtinAIProtocols = []aiProtocolAdapter{
 				}
 			}
 			return path, true
-		},
-	},
-	{
-		id:        service.ModelChannelProtocolKIE,
-		allImages: isKIESeedreamLayerDecompositionModel,
-		path: func(channel model.ModelChannel, modelName string, path string) (string, bool) {
-			if !isKIEChannel(channel, modelName) {
-				return path, false
-			}
-			if path == "/images/generations" && strings.EqualFold(strings.TrimSpace(modelName), "grok-imagine-image-2-0/text-to-image") {
-				return "/client/tasks", true
-			}
-			if path == "/videos" || path == "/images/generations" || path == "/images/edits" {
-				return "/jobs/createTask", true
-			}
-			if strings.HasPrefix(path, "/videos/") && !strings.HasSuffix(path, "/content") {
-				taskID := strings.TrimSpace(strings.TrimPrefix(path, "/videos/"))
-				if taskID != "" && !strings.Contains(taskID, "/") {
-					return "/jobs/recordInfo?taskId=" + url.QueryEscape(taskID), true
-				}
-			}
-			return path, true
-		},
-		prepare: func(input aiProtocolRequest) (aiProtocolRequest, bool, error) {
-			if !isKIEChannel(input.channel, input.modelName) || input.mode == aiProtocolProxyRequest && !isKIECreateTaskPath(input.path) || input.mode == aiProtocolVideoRequest && input.path != "/jobs/createTask" {
-				return input, false, nil
-			}
-			input.failureLabel = "KIE"
-			var err error
-			input.body, input.contentType, err = normalizeKIEVideoBody(input.body, input.contentType, input.modelName, input.channel)
-			return input, true, err
-		},
-		copyResponse: copyKIEVideoResponse,
-		videoResponse: func(payload []byte, request *http.Request, channel model.ModelChannel, modelName string, status bool) ([]byte, bool) {
-			if !isKIEChannel(channel, modelName) {
-				return nil, false
-			}
-			if status && strings.Contains(request.URL.Path, "/jobs/recordInfo") {
-				return transformKIETaskResponse(payload, modelName)
-			}
-			if !status && strings.Contains(request.URL.Path, "/jobs/createTask") {
-				return transformKIECreateVideoResponse(payload, modelName)
-			}
-			return nil, false
-		},
-		videoError: func(payload []byte, channel model.ModelChannel, modelName string, status bool) string {
-			if !isKIEChannel(channel, modelName) {
-				return ""
-			}
-			if status {
-				return readKIERecordInfoErrorMessage(payload)
-			}
-			return readKIECreateTaskErrorMessage(payload)
-		},
-		uploads: func(_ model.ModelChannel, kinds map[string]bool) (map[string]directAIUpload, error) {
-			uploads := map[string]directAIUpload{}
-			for kind, uploadPath := range map[string]string{"image": "images/user-uploads", "video": "videos/user-uploads", "audio": "audios/user-uploads"} {
-				if kinds[kind] {
-					uploads[kind] = directAIUpload{
-						URL: kieFileStreamUploadURL, FileField: "file", FileNameField: "fileName",
-						ExtraFields: map[string]string{"uploadPath": uploadPath}, ResponsePaths: []string{"data.downloadUrl", "data.fileUrl", "data.url"},
-					}
-				}
-			}
-			return uploads, nil
-		},
-	},
-	{
-		id: service.ModelChannelProtocolAPIMart,
-		path: func(channel model.ModelChannel, modelName string, path string) (string, bool) {
-			if !isAPIMartChannel(channel, modelName) {
-				return path, false
-			}
-			if path == "/videos" {
-				return "/videos/generations", true
-			}
-			if path == "/images/edits" {
-				model := normalizeAPIMartModelName(modelName)
-				if strings.Contains(model, "grok-imagine") && strings.Contains(model, "edit") {
-					return path, true
-				}
-				return "/images/generations", true
-			}
-			if strings.HasPrefix(path, "/videos/") && !strings.HasSuffix(path, "/content") {
-				taskID := strings.TrimSpace(strings.TrimPrefix(path, "/videos/"))
-				if taskID != "" && !strings.Contains(taskID, "/") {
-					return "/tasks/" + url.PathEscape(taskID) + "?language=zh", true
-				}
-			}
-			return path, true
-		},
-		prepare: func(input aiProtocolRequest) (aiProtocolRequest, bool, error) {
-			if !isAPIMartChannel(input.channel, input.modelName) {
-				return input, false, nil
-			}
-			video := input.path == "/videos/generations"
-			image := input.mode != aiProtocolVideoRequest && (input.path == "/images/generations" || input.path == "/images/edits")
-			if input.mode == aiProtocolDirectRequest {
-				video, image = input.endpoint == "/videos", input.endpoint != "/videos"
-			}
-			var err error
-			if video {
-				input.failureLabel = "APIMart video"
-				input.body, input.contentType, err = normalizeAPIMartVideoBody(input.body, input.contentType, input.modelName, input.channel)
-			} else if image {
-				input.failureLabel = "APIMart image"
-				input.body, input.contentType, err = normalizeAPIMartImageBody(input.body, input.contentType, input.modelName, input.channel)
-			}
-			return input, video || image, err
-		},
-		copyResponse: func(w http.ResponseWriter, response *http.Response, request *http.Request, channel model.ModelChannel, context aiLogContext, onFailure func()) bool {
-			return isAPIMartChannel(channel, context.Model) && (copyAPIMartImageResponse(w, response, request, channel, context, onFailure) || copyAPIMartVideoResponse(w, response, request, channel, context))
-		},
-		videoResponse: func(payload []byte, request *http.Request, channel model.ModelChannel, modelName string, status bool) ([]byte, bool) {
-			if !isAPIMartChannel(channel, modelName) {
-				return nil, false
-			}
-			if status && strings.Contains(request.URL.Path, "/tasks/") {
-				return transformAPIMartTaskResponse(payload, modelName)
-			}
-			if !status && strings.Contains(request.URL.Path, "/videos/generations") {
-				return transformAPIMartCreateVideoResponse(payload, modelName)
-			}
-			return nil, false
-		},
-		uploads: func(channel model.ModelChannel, kinds map[string]bool) (map[string]directAIUpload, error) {
-			if kinds["video"] || kinds["audio"] {
-				return nil, errors.New("APIMart 本地视频和音频参考暂不支持直传，请使用公网媒体地址")
-			}
-			uploads := map[string]directAIUpload{}
-			if kinds["image"] {
-				uploads["image"] = directAIUpload{URL: service.BuildModelChannelURL(channel, apimartImageUploadPath), FileField: "file", ResponsePaths: []string{"url"}}
-			}
-			return uploads, nil
 		},
 	},
 	{
@@ -359,7 +204,6 @@ var builtinAIProtocols = []aiProtocolAdapter{
 			return baseURL + "/agnesapi?" + values.Encode(), true
 		},
 	},
-	{id: service.ModelChannelProtocol88API},
 	{
 		id:   service.ModelChannelProtocolOpenAI,
 		path: func(_ model.ModelChannel, _ string, path string) (string, bool) { return path, true },
@@ -401,29 +245,9 @@ func transformAIProtocolVideoPayload(payload []byte, request *http.Request, chan
 	return payload
 }
 
-func readAIProtocolVideoError(payload []byte, channel model.ModelChannel, modelName string, status bool) string {
-	for _, adapter := range builtinAIProtocols {
-		if adapter.videoError != nil {
-			if message := adapter.videoError(payload, channel, modelName, status); message != "" {
-				return message
-			}
-		}
-	}
-	return ""
-}
-
 func isAIProtocolVideoID(modelName string, id string) bool {
 	for _, adapter := range builtinAIProtocols {
 		if adapter.videoID != nil && adapter.videoID(modelName, id) {
-			return true
-		}
-	}
-	return false
-}
-
-func allAIProtocolImageResults(modelName string) bool {
-	for _, adapter := range builtinAIProtocols {
-		if adapter.allImages != nil && adapter.allImages(modelName) {
 			return true
 		}
 	}

@@ -14,18 +14,15 @@ import (
 )
 
 func TestModelProtocolAuthContract(t *testing.T) {
-	for _, protocol := range []string{"", "openai", " GEMINI ", "grok2api", "metaso", "apimart", "kie", "mimo", "88api", " AUTODL ", "ark", "unknown"} {
+	for _, protocol := range []string{"", "openai", " GEMINI ", "grok2api", "metaso", "mimo", "ark", "unknown"} {
 		request := httptest.NewRequest(http.MethodPost, "https://upstream.invalid", nil)
 		request.Header.Set("Authorization", "existing authorization")
 		request.Header.Set("x-goog-api-key", "existing google key")
-		channel := model.ModelChannel{Protocol: protocol, APIKey: "test-key", BaseURL: "https://api.kie.ai"}
+		channel := model.ModelChannel{Protocol: protocol, APIKey: "test-key", BaseURL: "https://api.example"}
 		SetModelChannelAuthHeader(request, channel)
 		wantAuthorization, wantGoogle := "Bearer test-key", "existing google key"
 		if protocol == " GEMINI " {
 			wantAuthorization, wantGoogle = "existing authorization", "test-key"
-		}
-		if protocol == " AUTODL " {
-			wantAuthorization = "test-key"
 		}
 		if request.Header.Get("Authorization") != wantAuthorization || request.Header.Get("x-goog-api-key") != wantGoogle {
 			t.Errorf("%q auth changed: %v", protocol, request.Header)
@@ -39,17 +36,14 @@ func TestModelProtocolStaticDiscoveryPrecedence(t *testing.T) {
 		return nil, errors.New("network forbidden")
 	})
 	mimo := MiMoModels()
-	kie := kieMarketModels()
 	sort.Strings(mimo)
-	sort.Strings(kie)
 	tests := []struct {
 		name, protocol, baseURL string
 		want                    []string
 	}{
-		{"metaso before URL inference", "metaso", "https://xiaomimimo.com/kie.ai", []string{"MiniMax-H3"}},
-		{"mimo URL before explicit kie", "kie", "https://xiaomimimo.com", mimo},
-		{"mimo before kie URL", "mimo", "https://api.kie.ai", mimo},
-		{"kie URL inference", "openai", "https://api.kie.ai", kie},
+		{"metaso static models", "metaso", "https://api.example", MiniMaxModels()},
+		{"jimeng static models", "jimeng", "https://api.example", JimengModels()},
+		{"mimo static models", "mimo", "https://api.example", mimo},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -79,8 +73,7 @@ func TestModelProtocolGeminiDiscoveryContract(t *testing.T) {
 		}
 		return protocolAdminResponse(`{"models":[{"name":"models/a","supportedGenerationMethods":["predictLongRunning"]},{"name":"models/z","supportedGenerationMethods":["generateContent"]},{"name":"models/imagen-b"}]}`), nil
 	})
-	// Gemini must win even when the URL also looks like a KIE channel.
-	got, err := AdminChannelModels(nil, model.ModelChannel{Protocol: "gemini", BaseURL: "https://api.kie.ai/v1beta", APIKey: "test-key"})
+	got, err := AdminChannelModels(nil, model.ModelChannel{Protocol: "gemini", BaseURL: "https://api.example/v1beta", APIKey: "test-key"})
 	want := []string{"a", "imagen-b", "veo-a", "z"}
 	if err != nil || !reflect.DeepEqual(got, want) || calls != 2 {
 		t.Fatalf("Gemini discovery got %v, %v, %d calls; want %v, 2 calls", got, err, calls, want)
@@ -94,7 +87,6 @@ func TestModelProtocolConfigTestsDoNotGenerate(t *testing.T) {
 	})
 	tests := []struct{ protocol, baseURL, model, want string }{
 		{"metaso", "https://api.example/api/plan/v3", "seedance", "MiniMax-H3 是异步视频模型，请在视频创作台测试生成。"},
-		{"88api", "https://api.example/api/plan/v3", "seedance", "88API 渠道不会调用聊天接口测试，请在对应创作台验证模型。"},
 		{"ark", "https://api.example/api/plan/v3", "deployment", "Agent Plan / Seedance 视频模型配置格式已通过。后台测试不会调用视频生成接口，因此未验证 API Key、套餐额度或模型权限；请在画布中使用视频生成验证。"},
 		{"gemini", "https://api.example", "veo-3", "模型列表与渠道配置有效；图片、视频和语音模型未执行付费生成测试。"},
 		{"gemini", "https://api.example", "gemini-image", "模型列表与渠道配置有效；图片、视频和语音模型未执行付费生成测试。"},

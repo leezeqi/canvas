@@ -34,6 +34,10 @@ func BuildGeminiChannelURL(channel model.ModelChannel, path string) string {
 }
 
 func SetModelChannelAuthHeader(request *http.Request, channel model.ModelChannel) {
+	if IsJimengChannel(channel) {
+		_ = SetJimengAuthHeader(request, channel)
+		return
+	}
 	modelProtocolForChannel(channel).setAuth(request, channel)
 }
 

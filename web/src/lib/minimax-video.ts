@@ -2,7 +2,7 @@ import { normalizeSeedanceRatio } from "@/lib/seedance-video";
 import { channelProtocolForConfig, type AiConfig } from "@/stores/use-config-store";
 
 export const MINIMAX_CHANNEL_PROTOCOL = "metaso" as const;
-export const miniMaxModels = ["MiniMax-H3"] as const;
+export const miniMaxModels = ["MiniMax-H3", "MiniMax-Hailuo-2.3", "MiniMax-Hailuo-2.3-Fast", "MiniMax-Hailuo-02", "MiniMax-Hailuo-01"] as const;
 
 export function isMiniMaxChannel(channel?: { protocol?: string }) {
     return channel?.protocol === MINIMAX_CHANNEL_PROTOCOL;
@@ -12,6 +12,11 @@ export function isMiniMaxH3Config(config: AiConfig, modelName: string) {
     const model = modelName.trim();
     return model.toLowerCase() === "minimax-h3"
         && channelProtocolForConfig({ ...config, model, videoModel: model }) === MINIMAX_CHANNEL_PROTOCOL;
+}
+
+export function isMiniMaxHailuoConfig(config: AiConfig, modelName: string) {
+    const model = modelName.trim().toLowerCase();
+    return (model.startsWith("minimax-hailuo-") || model.startsWith("hailuo-")) && channelProtocolForConfig({ ...config, model, videoModel: model }) === MINIMAX_CHANNEL_PROTOCOL;
 }
 
 export function normalizeMiniMaxH3Resolution(value: string) {
