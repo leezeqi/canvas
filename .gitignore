@@ -9,3 +9,9 @@ data/
 *.tsbuildinfo
 .DS_Store
 .idea
+
+# Local build binaries and assets
+canvas-server.exe
+*.exe
+_ref*.png
+package-lock.json

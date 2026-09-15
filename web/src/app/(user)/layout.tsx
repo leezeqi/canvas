@@ -16,8 +16,6 @@ export default function UserLayout({ children }: { children: ReactNode }) {
     const isReady = useUserStore((state) => state.isReady);
     const wasLoggedOutRef = useRef(false);
     const isProtectedPage = protectedPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
-    const isCanvasDetail = /^\/canvas\/[^/]+/.test(pathname);
-    const isHomePage = pathname === "/";
 
     useEffect(() => {
         if (!isReady || !isProtectedPage || user) return;
@@ -54,7 +52,7 @@ export default function UserLayout({ children }: { children: ReactNode }) {
     return (
         <div className="aurora-app flex h-dvh flex-col overflow-hidden bg-background text-foreground">
             <AppTopNav />
-            <div className={`min-h-0 flex-1 overflow-hidden ${isCanvasDetail || isHomePage ? "" : "md:pl-[92px]"}`}>{isProtectedPage && (!isReady || !user) ? null : children}</div>
+            <div className="min-h-0 flex-1 overflow-hidden">{isProtectedPage && (!isReady || !user) ? null : children}</div>
         </div>
     );
 }

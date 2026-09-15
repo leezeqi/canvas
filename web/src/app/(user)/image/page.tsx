@@ -1095,7 +1095,7 @@ export default function ImagePage() {
     };
 
     return (
-        <div className="flex h-full flex-col overflow-hidden bg-background bg-[linear-gradient(135deg,rgba(139,92,246,0.12),transparent_32%,transparent_72%,rgba(14,165,233,0.08))] text-stone-900 dark:bg-[linear-gradient(135deg,rgba(139,92,246,0.18),transparent_34%,transparent_70%,rgba(14,165,233,0.08))] dark:text-stone-100">
+        <div className="flex h-full flex-col overflow-hidden bg-background bg-[linear-gradient(135deg,rgba(139,92,246,0.12),transparent_32%,transparent_72%,rgba(14,165,233,0.08))] text-stone-900 dark:bg-[linear-gradient(135deg,rgba(139,92,246,0.18),transparent_34%,transparent_70%,rgba(14,165,233,0.08))] dark:text-foreground">
             <main className={`${workbenchLayout === "side" ? "grid grid-cols-1 lg:grid-cols-[420px_minmax(0,1fr)]" : "relative flex flex-col"} min-h-0 flex-1 gap-3 overflow-y-auto p-3 lg:overflow-hidden`}>
                 {workbenchLayout === "side" ? (
                     <>
@@ -1219,7 +1219,7 @@ export default function ImagePage() {
             <button
                 ref={workflowButtonRef}
                 type="button"
-                className="fixed z-50 inline-flex touch-none select-none items-center gap-2 rounded-full border border-violet-300/70 bg-white/78 px-4 py-3 text-sm font-semibold text-stone-950 shadow-[0_18px_50px_rgba(124,58,237,0.24),0_8px_18px_rgba(0,0,0,0.10)] ring-1 ring-white/70 backdrop-blur-xl transition hover:-translate-y-0.5 hover:border-violet-300 hover:bg-white/90 hover:shadow-[0_22px_64px_rgba(124,58,237,0.30),0_10px_22px_rgba(0,0,0,0.14)] dark:border-violet-400/40 dark:bg-stone-950/72 dark:text-stone-100 dark:ring-white/10 dark:hover:bg-stone-900/85"
+                className="fixed z-50 inline-flex touch-none select-none items-center gap-2 rounded-full border border-[var(--border)] bg-card px-4 py-3 text-sm font-medium text-foreground shadow-sm backdrop-blur-xl transition hover:-translate-y-0.5 hover:border-foreground/50"
                 style={{
                     left: (typeof window === "undefined" ? defaultWorkflowButtonPosition() : clampWorkflowButtonPosition(workflowButtonPosition.x || workflowButtonPosition.y ? workflowButtonPosition : defaultWorkflowButtonPosition())).x,
                     top: (typeof window === "undefined" ? defaultWorkflowButtonPosition() : clampWorkflowButtonPosition(workflowButtonPosition.x || workflowButtonPosition.y ? workflowButtonPosition : defaultWorkflowButtonPosition())).y
@@ -1236,8 +1236,8 @@ export default function ImagePage() {
                     setWorkflowDrawerOpen(true);
                 }}
             >
-                <span className="absolute -right-0.5 -top-0.5 size-2.5 rounded-full bg-violet-500 shadow-[0_0_18px_rgba(139,92,246,0.9)]" />
-                <WandSparkles className="size-4 text-violet-600 dark:text-violet-300" />
+                <span className="absolute -right-0.5 -top-0.5 size-2.5 rounded-full bg-foreground" />
+                <WandSparkles className="size-4 text-foreground/80" />
                 工作流
             </button>
             <Drawer title="创作工作流" placement="right" size="min(1120px, 92vw)" open={workflowDrawerOpen}  onClose={() => setWorkflowDrawerOpen(false)} styles={{ body: { padding: 0 } }} destroyOnHidden={false}>
@@ -1365,7 +1365,7 @@ function WorkbenchPanel({
                             </div>
                         </div>
                         <div className={`grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-[1.3fr_1.1fr_0.9fr_0.9fr_0.9fr_0.85fr_0.8fr_0.8fr_auto_auto] ${bottomSettingsCollapsed ? "hidden lg:grid" : "grid"}`}>
-                            <label className="grid gap-1 text-xs text-stone-500 dark:text-stone-400">
+                            <label className="grid gap-1 text-xs text-muted-foreground dark:text-muted-foreground/80">
                                 模型
                                 <ModelPicker
                                     config={config}
@@ -1381,7 +1381,7 @@ function WorkbenchPanel({
                                     fullWidth
                                 />
                             </label>
-                            <label className="grid gap-1 text-xs text-stone-500 dark:text-stone-400">
+                            <label className="grid gap-1 text-xs text-muted-foreground dark:text-muted-foreground/80">
                                 接口模式
                                 <div className="flex h-11 items-center rounded-xl border border-stone-200 bg-background px-2.5 dark:border-stone-800">
                                     <Segmented
@@ -1465,7 +1465,7 @@ function WorkbenchHeader({ currentLayout, onLayoutChange, compact = false }: { c
     return (
         <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
-                <h1 className={`${compact ? "text-base" : "text-2xl"} font-semibold text-stone-950 dark:text-stone-100`}>生图工作台</h1>
+                <h1 className={`${compact ? "text-base" : "text-2xl"} font-semibold text-foreground`}>生图工作台</h1>
             </div>
             <div className="flex shrink-0 rounded-lg border border-stone-200 bg-stone-50 p-1 dark:border-stone-800 dark:bg-stone-900">
                 <Button size="small" type={currentLayout === "side" ? "primary" : "text"} icon={<PanelLeft className="size-3.5" />} onClick={() => onLayoutChange("side")}>
@@ -1490,7 +1490,7 @@ function ReferenceStrip({ references, compact = false, className = "", onRemoveR
             }}
         >
             {references.map((item) => (
-                <div key={item.id} className={`${compact ? "size-12" : "size-20"} group relative shrink-0 overflow-hidden rounded-md border border-stone-200 dark:border-stone-800`}>
+                <div key={item.id} className={`${compact ? "size-12" : "size-20"} group relative shrink-0 overflow-hidden rounded-md border border-border`}>
                     <Image
                         src={item.dataUrl || undefined}
                         alt={item.name}
@@ -1506,11 +1506,11 @@ function ReferenceStrip({ references, compact = false, className = "", onRemoveR
                 </div>
             ))}
             {Array.from({ length: uploadingCount }).map((_, i) => (
-                <div key={`loading-${i}`} className={`${compact ? "size-12" : "size-20"} shrink-0 flex items-center justify-center rounded-md border border-stone-200 dark:border-stone-800 bg-stone-100/50 dark:bg-stone-900/50`}>
-                    <LoaderCircle className="size-5 animate-spin text-stone-400" />
+                <div key={`loading-${i}`} className={`${compact ? "size-12" : "size-20"} shrink-0 flex items-center justify-center rounded-md border border-border bg-stone-100/50 dark:bg-stone-900/50`}>
+                    <LoaderCircle className="size-5 animate-spin text-muted-foreground/80" />
                 </div>
             ))}
-            {!references.length && !uploadingCount ? <div className="flex min-w-full items-center justify-center text-sm text-stone-500">暂无参考图</div> : null}
+            {!references.length && !uploadingCount ? <div className="flex min-w-full items-center justify-center text-sm text-muted-foreground">暂无参考图</div> : null}
         </div>
     );
 }
@@ -1519,7 +1519,7 @@ function ReferenceQuickActions({ references, onUploadReferences }: { references:
     return (
         <div className="flex h-11 items-center gap-1 rounded-xl border border-stone-200 bg-background px-2 dark:border-stone-800">
             {references[0] ? <img src={references[0].dataUrl || undefined} alt={references[0].name} className="size-7 rounded object-cover" /> : null}
-            {references.length ? <span className="min-w-7 text-xs text-stone-500">{references.length} 张</span> : null}
+            {references.length ? <span className="min-w-7 text-xs text-muted-foreground">{references.length} 张</span> : null}
             <Button size="small" type="text" icon={<Upload className="size-3.5" />} onClick={onUploadReferences} />
         </div>
     );
@@ -1527,9 +1527,9 @@ function ReferenceQuickActions({ references, onUploadReferences }: { references:
 
 function QuickSelect({ label, value, options, onChange }: { label: string; value: string; options: { value: string; label: string }[]; onChange: (value: string) => void }) {
     return (
-        <label className="grid gap-1 text-xs text-stone-500 dark:text-stone-400">
+        <label className="grid gap-1 text-xs text-muted-foreground dark:text-muted-foreground/80">
             {label}
-            <select className="h-11 min-w-0 rounded-xl border border-stone-200 bg-background px-3 text-sm text-stone-900 outline-none dark:border-stone-800 dark:text-stone-100" value={value} onChange={(event) => onChange(event.target.value)}>
+            <select className="h-11 min-w-0 rounded-xl border border-stone-200 bg-background px-3 text-sm text-stone-900 outline-none dark:border-stone-800 dark:text-foreground" value={value} onChange={(event) => onChange(event.target.value)}>
                 {options.map((item) => (
                     <option key={item.value} value={item.value}>
                         {item.label}
@@ -1542,10 +1542,10 @@ function QuickSelect({ label, value, options, onChange }: { label: string; value
 
 function QuickNumber({ label, value, min, max, disabled, onChange }: { label: string; value: string; min: number; max: number; disabled?: boolean; onChange: (value: string) => void }) {
     return (
-        <label className="grid gap-1 text-xs text-stone-500 dark:text-stone-400">
+        <label className="grid gap-1 text-xs text-muted-foreground dark:text-muted-foreground/80">
             {label}
             <input
-                className="h-11 min-w-0 rounded-xl border border-stone-200 bg-background px-3 text-sm text-stone-900 outline-none disabled:opacity-50 dark:border-stone-800 dark:text-stone-100"
+                className="h-11 min-w-0 rounded-xl border border-stone-200 bg-background px-3 text-sm text-stone-900 outline-none disabled:opacity-50 dark:border-stone-800 dark:text-foreground"
                 type="number"
                 min={min}
                 max={max}
@@ -1665,7 +1665,7 @@ function ResultsPanel({
         <div className={`thin-scrollbar rounded-lg border border-white/70 bg-white/52 p-4 shadow-[0_18px_55px_rgba(76,29,149,0.09)] backdrop-blur-xl dark:border-white/10 dark:bg-stone-950/52 lg:min-h-0 lg:overflow-y-auto lg:p-5 ${className}`}>
             <div className="mb-4 flex items-center justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-2">
-                    <History className="size-4 text-stone-400" />
+                    <History className="size-4 text-muted-foreground/80" />
                     <h2 className="truncate text-xl font-semibold">{activeCategory ? activeCategory.name : "全部结果"}</h2>
                     <Tag className="m-0">{totalCount}</Tag>
                     {pendingCount ? <Tag className="m-0 px-2 py-1">{pendingCount} 个生成中</Tag> : null}
@@ -1748,7 +1748,7 @@ function ResultsPanel({
                 </div>
             ) : (
                 <div className="flex min-h-[320px] flex-col items-center justify-center rounded-lg border border-dashed border-stone-300 text-center dark:border-stone-700 lg:min-h-[560px]">
-                    <ImagePlus className="mb-4 size-11 text-stone-400" />
+                    <ImagePlus className="mb-4 size-11 text-muted-foreground/80" />
                     <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="还没有生成图片" />
                 </div>
             )}
@@ -1809,7 +1809,7 @@ function CategoryCard({
                         ))}
                     </>
                 ) : (
-                    <div className="flex size-full items-center justify-center text-sm text-stone-500">暂无图片</div>
+                    <div className="flex size-full items-center justify-center text-sm text-muted-foreground">暂无图片</div>
                 )}
             </div>
             <div className="absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/80 via-black/45 to-transparent p-3 pt-10 text-white">
@@ -1892,7 +1892,7 @@ function ResultImageCard({
             </div>
             <TaskInfo result={result} onCopyPrompt={onCopyPrompt} />
             <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-2 border-t border-stone-200 px-2.5 py-2 dark:border-stone-800">
-                <div className="flex min-w-0 flex-wrap gap-x-1.5 gap-y-1 text-[10px] text-stone-500 dark:text-stone-400">
+                <div className="flex min-w-0 flex-wrap gap-x-1.5 gap-y-1 text-[10px] text-muted-foreground dark:text-muted-foreground/80">
                     <span>
                         {image.width}x{image.height}
                     </span>
@@ -1921,7 +1921,7 @@ function PendingImageCard({ result, now, onCopyPrompt }: { result: GenerationRes
                         backgroundSize: "16px 16px",
                     }}
                 />
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-sm text-stone-500 dark:text-stone-400">
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-sm text-muted-foreground dark:text-muted-foreground/80">
                     <LoaderCircle className="size-6 animate-spin" />
                     <span>生成中</span>
                     <span className="rounded-full bg-white/80 px-2 py-1 text-xs text-stone-600 shadow-sm dark:bg-stone-950/70 dark:text-stone-300">{formatDuration(Math.max(0, now - result.createdAt))}</span>
@@ -1965,7 +1965,7 @@ function TaskInfo({ result, error, onCopyPrompt }: { result: GenerationResult; e
     const [expanded, setExpanded] = useState(false);
 
     return (
-        <div className="space-y-2 border-t border-stone-200 px-3 py-2.5 text-xs text-stone-500 dark:border-stone-800 dark:text-stone-400">
+        <div className="space-y-2 border-t border-stone-200 px-3 py-2.5 text-xs text-muted-foreground dark:border-stone-800 dark:text-muted-foreground/80">
             <div className="rounded-md bg-stone-50 p-2 dark:bg-stone-900">
                 <div className={`${expanded ? "" : "line-clamp-2"} whitespace-pre-wrap text-stone-700 dark:text-stone-200`}>{result.prompt}</div>
                 <div className="mt-2 flex justify-end gap-1">
@@ -2065,7 +2065,7 @@ function HistoryLogCard({
     }, [categoryOpen]);
 
     return (
-        <div className={`overflow-hidden rounded-lg border bg-background dark:bg-stone-950 ${active ? "border-stone-900 dark:border-stone-100" : "border-stone-200 dark:border-stone-800"}`}>
+        <div className={`overflow-hidden rounded-lg border bg-background dark:bg-stone-950 ${active ? "border-stone-900 dark:border-stone-100" : "border-border"}`}>
             <div className="relative aspect-[4/3] bg-stone-100 dark:bg-stone-900">
                 <div className="absolute left-1.5 top-1.5 z-10 flex items-center gap-1 rounded-md bg-white/85 px-1.5 py-1 shadow-sm dark:bg-stone-950/80">
                     <Checkbox checked={selected} onChange={(event) => onSelectedChange(event.target.checked)} />
@@ -2157,7 +2157,7 @@ function HistoryLogCard({
                                         <span className="truncate">{category.name}</span>
                                     </label>
                                 ))}
-                                {!categories.length ? <div className="px-2 py-3 text-center text-xs text-stone-500">暂无分类</div> : null}
+                                {!categories.length ? <div className="px-2 py-3 text-center text-xs text-muted-foreground">暂无分类</div> : null}
                             </div>
                             <div className="mt-2 flex gap-1 border-t border-stone-200 pt-2 dark:border-stone-800">
                                 <Input size="small" value={categoryName} placeholder="新分类" onChange={(event) => setCategoryName(event.target.value)} onPressEnter={() => void createCategory()} />

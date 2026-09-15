@@ -1039,7 +1039,7 @@ export default function VideoPage() {
     };
 
     return (
-        <div className="flex h-full flex-col overflow-hidden bg-background bg-[linear-gradient(135deg,rgba(139,92,246,0.12),transparent_32%,transparent_72%,rgba(14,165,233,0.08))] text-stone-900 dark:bg-[linear-gradient(135deg,rgba(139,92,246,0.18),transparent_34%,transparent_70%,rgba(14,165,233,0.08))] dark:text-stone-100">
+        <div className="flex h-full flex-col overflow-hidden bg-background bg-[linear-gradient(135deg,rgba(139,92,246,0.12),transparent_32%,transparent_72%,rgba(14,165,233,0.08))] text-stone-900 dark:bg-[linear-gradient(135deg,rgba(139,92,246,0.18),transparent_34%,transparent_70%,rgba(14,165,233,0.08))] dark:text-foreground">
             <main className={`${workbenchLayout === "side" ? "grid grid-cols-1 lg:grid-cols-[420px_minmax(0,1fr)]" : "relative flex flex-col"} min-h-0 flex-1 gap-3 overflow-y-auto p-3 lg:overflow-hidden`}>
                 {workbenchLayout === "side" ? (
                     <>
@@ -1426,7 +1426,7 @@ function WorkbenchPanel({
                             />
                         ) : null}
                         <div className={`grid grid-cols-2 gap-2 sm:grid-cols-3 ${bottomSettingsGridClass} ${bottomSettingsCollapsed ? "hidden lg:grid" : "grid"}`}>
-                            <label className="grid gap-1 text-xs text-stone-500 dark:text-stone-400">
+                            <label className="grid gap-1 text-xs text-muted-foreground dark:text-muted-foreground/80">
                                 模型
                                 <ModelPicker config={config} value={model} channelId={config.videoChannelId} onChange={(value, channelId) => { updateConfig("videoModel", value); if (channelId) updateConfig("videoChannelId", channelId); }} capability="video" className="canvas-compact-control !h-11 !rounded-xl" onMissingConfig={() => openConfigDialog(false)} fullWidth />
                             </label>
@@ -1531,7 +1531,7 @@ function WorkbenchPanel({
 function WorkbenchHeader({ currentLayout, onLayoutChange }: { currentLayout: WorkbenchLayout; onLayoutChange: (layout: WorkbenchLayout) => void }) {
     return (
         <div className="flex items-center justify-between gap-3">
-            <h1 className="text-2xl font-semibold text-stone-950 dark:text-stone-100">视频创作台</h1>
+            <h1 className="text-2xl font-semibold text-foreground">视频创作台</h1>
             <div className="flex shrink-0 rounded-lg border border-stone-200 bg-stone-50 p-1 dark:border-stone-800 dark:bg-stone-900">
                 <Button size="small" type={currentLayout === "side" ? "primary" : "text"} icon={<PanelLeft className="size-3.5" />} onClick={() => onLayoutChange("side")}>侧边</Button>
                 <Button size="small" type={currentLayout === "bottom" ? "primary" : "text"} icon={<PanelBottom className="size-3.5" />} onClick={() => onLayoutChange("bottom")}>底部</Button>
@@ -1587,7 +1587,7 @@ function FrameReferenceRow({ label, slot, reference, onPasteFrame, onUploadFrame
 
 function FrameReferenceSlot({ label, reference, compact, onUpload, onRemove }: { label: string; reference: ReferenceImage | null; compact: boolean; onUpload: () => void; onRemove: () => void }) {
     return (
-        <div className={`group relative flex min-w-0 items-center justify-center overflow-hidden rounded-md border border-stone-200 bg-stone-50 text-xs text-stone-500 dark:border-stone-800 dark:bg-stone-900 ${compact ? "h-12" : "h-20"}`}>
+        <div className={`group relative flex min-w-0 items-center justify-center overflow-hidden rounded-md border border-stone-200 bg-stone-50 text-xs text-muted-foreground dark:border-stone-800 dark:bg-stone-900 ${compact ? "h-12" : "h-20"}`}>
             {reference ? (
                 <>
                     <img src={reference.dataUrl} alt={reference.name} className="size-full object-cover" />
@@ -1611,7 +1611,7 @@ function ReferenceImageStrip({ references, compact = false, maxCount = SEEDANCE_
     return (
         <div className={`hover-scrollbar hover-scrollbar-hint flex w-full min-w-0 max-w-full gap-2 overflow-x-scroll overflow-y-hidden rounded-lg border border-dashed border-stone-300 p-2 overscroll-x-contain dark:border-stone-700 ${compact ? "min-h-14" : "min-h-24 pb-3"}`}>
             {references.map((item, index) => (
-                <div key={item.id} className={`${compact ? "size-12" : "size-20"} group relative shrink-0 overflow-hidden rounded-md border border-stone-200 dark:border-stone-800`}>
+                <div key={item.id} className={`${compact ? "size-12" : "size-20"} group relative shrink-0 overflow-hidden rounded-md border border-border`}>
                     <img src={item.dataUrl} alt={item.name} className="size-full object-cover" />
                     <span className="absolute left-1 top-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white">{seedanceReferenceLabel("image", index)}</span>
                     <ReferenceOrderButtons index={index} total={references.length} onMove={(offset) => onMoveReference(index, offset)} />
@@ -1620,7 +1620,7 @@ function ReferenceImageStrip({ references, compact = false, maxCount = SEEDANCE_
                     </button>
                 </div>
             ))}
-            {!references.length ? <div className="flex min-w-full items-center justify-center text-sm text-stone-500">暂无参考图，最多 {maxCount} 张</div> : null}
+            {!references.length ? <div className="flex min-w-full items-center justify-center text-sm text-muted-foreground">暂无参考图，最多 {maxCount} 张</div> : null}
         </div>
     );
 }
@@ -1638,7 +1638,7 @@ function ReferenceVideoStrip({ references, compact = false, maxCount = SEEDANCE_
                     </button>
                 </div>
             ))}
-            {!references.length ? <div className="flex min-w-full items-center justify-center text-sm text-stone-500">暂无参考视频，最多 {maxCount} 个</div> : null}
+            {!references.length ? <div className="flex min-w-full items-center justify-center text-sm text-muted-foreground">暂无参考视频，最多 {maxCount} 个</div> : null}
         </div>
     );
 }
@@ -1648,7 +1648,7 @@ function ReferenceAudioStrip({ references, compact = false, maxCount = SEEDANCE_
         <div className={`hover-scrollbar hover-scrollbar-hint flex w-full min-w-0 max-w-full gap-2 overflow-x-scroll overflow-y-hidden rounded-lg border border-dashed border-stone-300 p-2 overscroll-x-contain dark:border-stone-700 ${compact ? "min-h-14" : "min-h-24 pb-3"}`}>
             {references.map((item, index) => (
                 <div key={item.id} className={`${compact ? "h-12 w-40" : "h-20 w-48"} group relative flex shrink-0 flex-col justify-center gap-2 rounded-md border border-stone-200 bg-stone-50 px-2 dark:border-stone-800 dark:bg-stone-900`}>
-                    <div className="flex min-w-0 items-center gap-2 text-xs text-stone-500 dark:text-stone-400">
+                    <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground dark:text-muted-foreground/80">
                         <Music2 className="size-4 shrink-0" />
                         <span className="shrink-0 rounded bg-stone-200 px-1 text-[10px] text-stone-700 dark:bg-stone-800 dark:text-stone-200">{seedanceReferenceLabel("audio", index)}</span>
                         <span className="truncate">{item.name}</span>
@@ -1660,7 +1660,7 @@ function ReferenceAudioStrip({ references, compact = false, maxCount = SEEDANCE_
                     </button>
                 </div>
             ))}
-            {!references.length ? <div className="flex min-w-full items-center justify-center text-center text-sm text-stone-500">暂无参考音频，最多 {maxCount} 个，mp3/wav，单个 15MB 内</div> : null}
+            {!references.length ? <div className="flex min-w-full items-center justify-center text-center text-sm text-muted-foreground">暂无参考音频，最多 {maxCount} 个，mp3/wav，单个 15MB 内</div> : null}
         </div>
     );
 }
@@ -1668,7 +1668,7 @@ function ReferenceAudioStrip({ references, compact = false, maxCount = SEEDANCE_
 function ReferenceQuickActions({ imageCount, videoCount, audioCount, onPasteReferences, onUploadReferences }: { imageCount: number; videoCount: number; audioCount: number; onPasteReferences: () => void; onUploadReferences: () => void }) {
     return (
         <div className="flex h-11 items-center gap-1 rounded-xl border border-stone-200 bg-background px-2 dark:border-stone-800">
-            {imageCount || videoCount || audioCount ? <span className="min-w-7 text-xs text-stone-500">{imageCount + videoCount + audioCount} 个</span> : null}
+            {imageCount || videoCount || audioCount ? <span className="min-w-7 text-xs text-muted-foreground">{imageCount + videoCount + audioCount} 个</span> : null}
             <Button title="读取剪切板" size="small" type="text" icon={<ClipboardPaste className="size-3.5" />} onClick={onPasteReferences} />
             <Button title="上传参考素材" size="small" type="text" icon={<Upload className="size-3.5" />} onClick={onUploadReferences} />
         </div>
@@ -1677,9 +1677,9 @@ function ReferenceQuickActions({ imageCount, videoCount, audioCount, onPasteRefe
 
 function TaskCountControl({ value, onChange }: { value: number; onChange: (value: number) => void }) {
     return (
-        <label className="flex h-11 items-center gap-2 rounded-xl border border-stone-200 bg-background px-3 text-xs text-stone-500 dark:border-stone-800 dark:text-stone-400">
+        <label className="flex h-11 items-center gap-2 rounded-xl border border-stone-200 bg-background px-3 text-xs text-muted-foreground dark:border-stone-800 dark:text-muted-foreground/80">
             <span className="shrink-0">任务</span>
-            <input className="h-7 w-16 rounded-lg border border-stone-200 bg-background px-2 text-sm text-stone-900 outline-none dark:border-stone-800 dark:text-stone-100" type="number" min={1} max={6} value={value} onChange={(event) => onChange(normalizeVideoCount(event.target.value))} />
+            <input className="h-7 w-16 rounded-lg border border-stone-200 bg-background px-2 text-sm text-stone-900 outline-none dark:border-stone-800 dark:text-foreground" type="number" min={1} max={6} value={value} onChange={(event) => onChange(normalizeVideoCount(event.target.value))} />
         </label>
     );
 }
@@ -1702,15 +1702,15 @@ function CharacterOrientationSetting({ value, onChange }: { value: string; onCha
 function optionPillClass(active: boolean) {
     return [
         "h-9 rounded-full border bg-transparent px-2 text-sm font-medium transition hover:opacity-80",
-        active ? "border-stone-950 text-stone-950 dark:border-stone-100 dark:text-stone-100" : "border-stone-200 text-stone-700 dark:border-stone-800 dark:text-stone-200",
+        active ? "border-stone-950 text-foreground dark:border-stone-100 dark:text-foreground" : "border-stone-200 text-stone-700 dark:border-stone-800 dark:text-stone-200",
     ].join(" ");
 }
 
 function QuickSelect({ label, value, options, onChange }: { label: string; value: string; options: { value: string; label: string }[]; onChange: (value: string) => void }) {
     return (
-        <label className="grid gap-1 text-xs text-stone-500 dark:text-stone-400">
+        <label className="grid gap-1 text-xs text-muted-foreground dark:text-muted-foreground/80">
             {label}
-            <select className="h-11 min-w-0 rounded-xl border border-stone-200 bg-background px-3 text-sm text-stone-900 outline-none dark:border-stone-800 dark:text-stone-100" value={value} onChange={(event) => onChange(event.target.value)}>
+            <select className="h-11 min-w-0 rounded-xl border border-stone-200 bg-background px-3 text-sm text-stone-900 outline-none dark:border-stone-800 dark:text-foreground" value={value} onChange={(event) => onChange(event.target.value)}>
                 {options.map((item) => (
                     <option key={item.value} value={item.value}>
                         {item.label}
@@ -1723,9 +1723,9 @@ function QuickSelect({ label, value, options, onChange }: { label: string; value
 
 function QuickNumber({ label, value, min, max, onChange, clampOnChange = true, normalizeOnBlur }: { label: string; value: string; min: number; max: number; onChange: (value: string) => void; clampOnChange?: boolean; normalizeOnBlur?: (value: string) => string }) {
     return (
-        <label className="grid gap-1 text-xs text-stone-500 dark:text-stone-400">
+        <label className="grid gap-1 text-xs text-muted-foreground dark:text-muted-foreground/80">
             {label}
-            <input className="h-11 min-w-0 rounded-xl border border-stone-200 bg-background px-3 text-sm text-stone-900 outline-none dark:border-stone-800 dark:text-stone-100" type="number" min={min} max={max} value={value} onChange={(event) => onChange(clampOnChange ? clampQuickNumberValue(event.target.value, min, max) : event.target.value)} onBlur={(event) => onChange(normalizeOnBlur ? normalizeOnBlur(event.target.value) : clampQuickNumberValue(event.target.value, min, max))} onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); }} />
+            <input className="h-11 min-w-0 rounded-xl border border-stone-200 bg-background px-3 text-sm text-stone-900 outline-none dark:border-stone-800 dark:text-foreground" type="number" min={min} max={max} value={value} onChange={(event) => onChange(clampOnChange ? clampQuickNumberValue(event.target.value, min, max) : event.target.value)} onBlur={(event) => onChange(normalizeOnBlur ? normalizeOnBlur(event.target.value) : clampQuickNumberValue(event.target.value, min, max))} onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); }} />
         </label>
     );
 }
@@ -1751,7 +1751,7 @@ function KlingV26BottomSettings({ config, updateConfig, generateAudio, isKlingV3
 
 function QuickSwitch({ label, checked, onChange }: { label: string; checked: boolean; onChange: (checked: boolean) => void }) {
     return (
-        <label className="grid gap-1 text-xs text-stone-500 dark:text-stone-400">
+        <label className="grid gap-1 text-xs text-muted-foreground dark:text-muted-foreground/80">
             {label}
             <span className="flex h-11 items-center justify-center rounded-xl border border-stone-200 bg-background px-3 dark:border-stone-800">
                 <Switch size="small" checked={checked} onChange={onChange} />
@@ -1850,7 +1850,7 @@ function ResultsPanel({
                 </div>
             ) : (
                 <div className="flex min-h-[320px] flex-col items-center justify-center rounded-lg border border-dashed border-stone-300 text-center dark:border-stone-700 lg:min-h-[560px]">
-                    <VideoIcon className="mb-4 size-11 text-stone-400" />
+                    <VideoIcon className="mb-4 size-11 text-muted-foreground/80" />
                     <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="还没有生成视频" />
                 </div>
             )}
@@ -1859,7 +1859,7 @@ function ResultsPanel({
 }
 
 function HistoryIcon() {
-    return <History className="size-4 shrink-0 text-stone-400" />;
+    return <History className="size-4 shrink-0 text-muted-foreground/80" />;
 }
 
 function ResultVideoCard({ result, video, index, syncing, onCopyPrompt, onDownload, onSync, onSaveAsset }: { result: GenerationResult; video: GeneratedVideo; index: number; syncing: boolean; onCopyPrompt: (text: string) => void | Promise<void>; onDownload: (video: GeneratedVideo) => void; onSync: (video: GeneratedVideo) => void; onSaveAsset: (video: GeneratedVideo) => void }) {
@@ -1886,14 +1886,14 @@ function PendingVideoCard({ result, now, onCopyPrompt }: { result: GenerationRes
         <div className="overflow-hidden rounded-lg border border-dashed border-stone-300 bg-stone-50 dark:border-stone-700 dark:bg-stone-900">
             <div className="relative aspect-video">
                 <div className="absolute inset-0 opacity-60" style={{ backgroundImage: "radial-gradient(circle, rgba(120,113,108,0.35) 1.4px, transparent 1.6px)", backgroundSize: "16px 16px" }} />
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-sm text-stone-500 dark:text-stone-400">
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-sm text-muted-foreground dark:text-muted-foreground/80">
                     <LoaderCircle className="size-6 animate-spin" />
                     {progress !== null ? <span className="animate-pulse font-semibold text-sky-500">正在创作 {progress}%</span> : <span>生成中</span>}
                     <span className="rounded-full bg-white/80 px-2 py-1 text-xs text-stone-600 shadow-sm dark:bg-stone-950/70 dark:text-stone-300">{formatDuration(durationMs)}</span>
                 </div>
                 {progress !== null ? (
                     <div className="absolute inset-x-4 bottom-4 z-10 flex flex-col gap-1">
-                        <div className="flex items-center justify-between text-[10px] font-medium text-stone-500 dark:text-stone-400">
+                        <div className="flex items-center justify-between text-[10px] font-medium text-muted-foreground dark:text-muted-foreground/80">
                             <span>当前创作进度</span>
                             <span>{progress}%</span>
                         </div>
@@ -1940,7 +1940,7 @@ function HistoryLogCard({ log, index, selected, active, syncing, onSelectedChang
     const [expanded, setExpanded] = useState(false);
     const [detailOpen, setDetailOpen] = useState(false);
     return (
-        <div className={`overflow-hidden rounded-lg border bg-background dark:bg-stone-950 ${active ? "border-stone-900 dark:border-stone-100" : "border-stone-200 dark:border-stone-800"}`}>
+        <div className={`overflow-hidden rounded-lg border bg-background dark:bg-stone-950 ${active ? "border-stone-900 dark:border-stone-100" : "border-border"}`}>
             <div className="relative aspect-video bg-stone-100 dark:bg-stone-900">
                 <div className="absolute left-1.5 top-1.5 z-10 flex items-center gap-1 rounded-md bg-white/85 px-1.5 py-1 shadow-sm dark:bg-stone-950/80">
                     <Checkbox checked={selected} onChange={(event) => onSelectedChange(event.target.checked)} />
@@ -1987,7 +1987,7 @@ function HistoryLogCard({ log, index, selected, active, syncing, onSelectedChang
 function VideoMetaBar({ video, syncing, onDownload, onSync, onSaveAsset }: { video: GeneratedVideo; index: number; syncing: boolean; onDownload: (video: GeneratedVideo) => void; onSync: (video: GeneratedVideo) => void; onSaveAsset: (video: GeneratedVideo) => void }) {
     return (
         <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-2 border-t border-stone-200 px-2.5 py-2 dark:border-stone-800">
-            <div className="flex min-w-0 flex-wrap gap-x-1.5 gap-y-1 text-[10px] text-stone-500 dark:text-stone-400">
+            <div className="flex min-w-0 flex-wrap gap-x-1.5 gap-y-1 text-[10px] text-muted-foreground dark:text-muted-foreground/80">
                 <span>{video.width}x{video.height}</span>
                 {video.bytes ? <span>{formatBytes(video.bytes)}</span> : <span>远端地址</span>}
                 <span>{formatDuration(video.durationMs)}</span>
@@ -2008,7 +2008,7 @@ function VideoSourceTag({ video }: { video: GeneratedVideo }) {
 function TaskInfo({ item, error, onCopyPrompt }: { item: GenerationResult; error?: string; onCopyPrompt: (text: string) => void | Promise<void> }) {
     const [expanded, setExpanded] = useState(false);
     return (
-        <div className="space-y-2 border-t border-stone-200 px-3 py-2.5 text-xs text-stone-500 dark:border-stone-800 dark:text-stone-400">
+        <div className="space-y-2 border-t border-stone-200 px-3 py-2.5 text-xs text-muted-foreground dark:border-stone-800 dark:text-muted-foreground/80">
             <div className="rounded-md bg-stone-50 p-2 dark:bg-stone-900">
                 <div className={`${expanded ? "" : "line-clamp-2"} whitespace-pre-wrap text-stone-700 dark:text-stone-200`}>{item.prompt}</div>
                 <div className="mt-2 flex justify-end gap-1">

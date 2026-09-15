@@ -14,7 +14,7 @@ type MobileNavDrawerProps = {
 
 export function MobileNavDrawer({ open, activeToolSlug, onClose }: MobileNavDrawerProps) {
     return (
-        <Drawer title="创作工具" placement="left" size={280} open={open} onClose={onClose} className="md:hidden">
+        <Drawer title={<span className="font-mono text-xs uppercase tracking-[0.2em] text-foreground/50">ATELIER // NAVIGATION</span>} placement="left" size={280} open={open} onClose={onClose} className="md:hidden">
             <div className="space-y-1">
                 {navigationTools.map((tool) => {
                     const Icon = tool.icon;
@@ -25,8 +25,8 @@ export function MobileNavDrawer({ open, activeToolSlug, onClose }: MobileNavDraw
                             href={`/${tool.slug}`}
                             onClick={onClose}
                             className={cn(
-                                "flex items-center gap-3 rounded-xl px-3 py-3 text-base transition",
-                                active ? "bg-violet-500/12 font-medium text-violet-700 dark:text-violet-300" : "text-slate-600 hover:bg-violet-500/8 hover:text-slate-950 dark:text-slate-300 dark:hover:text-white",
+                                "flex items-center gap-3 rounded-full px-4 py-3 text-base transition",
+                                active ? "bg-foreground text-background shadow-[rgba(0,0,0,0.2)_0px_2px_8px_-1px] font-medium" : "text-foreground/60 hover:bg-foreground/5 hover:text-foreground",
                             )}
                         >
                             <Icon className="size-5" />

@@ -1,16 +1,15 @@
 "use client";
 
-import { House, Menu } from "lucide-react";
-import { Tooltip } from "antd";
+import { Menu } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
 
 import { navigationTools, type NavigationToolSlug } from "@/constant/navigation-tools";
 import { AppConfigModal } from "@/components/layout/app-config-modal";
 import { MobileNavDrawer } from "@/components/layout/mobile-nav-drawer";
 import { UserStatusActions } from "@/components/layout/user-status-actions";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
 
 export function AppTopNav() {
     const pathname = usePathname();
@@ -23,67 +22,77 @@ export function AppTopNav() {
     return (
         <>
             {!hideHeader ? (
-                <>
-                    <header className="aurora-glass z-40 flex h-14 shrink-0 items-center justify-between border-b px-4 md:hidden">
-                        <Link href="/" className="flex min-w-0 items-center gap-2.5 font-medium text-slate-950 dark:text-white">
-                            <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-blue-600 text-white shadow-[0_8px_20px_rgba(124,58,237,.28)]">
-                                <span className="size-4 bg-current" style={{ mask: "url(/logo.svg) center / contain no-repeat", WebkitMask: "url(/logo.svg) center / contain no-repeat" }} />
+                <header className="relative sticky top-0 z-40 flex h-14 w-full shrink-0 items-center justify-between border-b border-border/40 bg-background/80 px-4 backdrop-blur-xl sm:px-6 md:px-8">
+                    {/* Left: Brand Logo & Title */}
+                    <div className="flex items-center min-w-[160px]">
+                        <Link href="/" className="group flex items-center gap-2.5 text-foreground">
+                            <span className="grid size-7 place-items-center rounded-lg border border-border/60 bg-foreground/5 text-foreground transition-all duration-200 group-hover:border-foreground/30 group-hover:bg-foreground/10">
+                                <svg className="size-4" viewBox="0 0 32 32" fill="none">
+                                    <path
+                                        d="M10.5 11C7.46243 11 5 13.2386 5 16C5 18.7614 7.46243 21 10.5 21C13.0116 21 15.148 19.3404 15.8601 17.0278C15.922 16.8267 16.078 16.8267 16.1399 17.0278C16.852 19.3404 18.9884 21 21.5 21C24.5376 21 27 18.7614 27 16C27 13.2386 24.5376 11 21.5 11C18.9884 11 16.852 12.6596 16.1399 14.9722C16.078 15.1733 15.922 15.1733 15.8601 14.9722C15.148 12.6596 13.0116 11 10.5 11Z"
+                                        stroke="currentColor"
+                                        strokeWidth="2.2"
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                    />
+                                </svg>
                             </span>
-                            <span className="truncate">无限画布</span>
+                            <span className="text-[14px] font-medium tracking-tight text-foreground">无限画布</span>
                         </Link>
-                        <div className="flex items-center gap-1">
-                            <UserStatusActions compact />
-                            <button type="button" className="inline-flex size-9 items-center justify-center rounded-xl text-slate-600 transition hover:bg-violet-500/10 hover:text-violet-600 dark:text-slate-300 dark:hover:text-violet-300" onClick={() => setMobileNavOpen(true)} aria-label="打开导航菜单" title="导航菜单">
-                                <Menu className="size-5" />
-                            </button>
-                        </div>
-                    </header>
+                    </div>
 
-                    <aside className="aurora-glass fixed left-5 top-1/2 z-50 hidden max-h-[calc(100vh-40px)] w-16 -translate-y-1/2 flex-col items-center gap-3 rounded-3xl border px-2 py-3 shadow-[0_24px_70px_rgba(31,38,58,.16)] md:flex dark:shadow-[0_24px_70px_rgba(0,0,0,.42)]">
-                        <Tooltip title="首页" placement="right">
-                            <Link
-                                href="/"
-                                className={cn(
-                                    "flex size-10 shrink-0 items-center justify-center rounded-xl transition",
-                                    homeActive
-                                        ? "bg-violet-500/14 text-violet-700 shadow-[inset_0_1px_rgba(255,255,255,.18)] dark:text-violet-300"
-                                        : "text-slate-500 hover:bg-violet-500/9 hover:text-slate-950 dark:text-slate-400 dark:hover:text-white",
-                                )}
-                                aria-current={homeActive ? "page" : undefined}
-                                aria-label="首页"
-                            >
-                                <House className="size-5" />
-                            </Link>
-                        </Tooltip>
+                    {/* Center: Centered Navigation Links */}
+                    <nav className="absolute left-1/2 -translate-x-1/2 hidden items-center gap-1 md:flex">
+                        <Link
+                            href="/"
+                            className={cn(
+                                "relative rounded-md px-3.5 py-1.5 text-xs font-medium tracking-wide transition-colors",
+                                homeActive
+                                    ? "text-foreground font-semibold after:absolute after:inset-x-3.5 after:-bottom-[14px] after:h-[2px] after:bg-foreground"
+                                    : "text-foreground/50 hover:text-foreground hover:bg-foreground/5",
+                            )}
+                        >
+                            首页
+                        </Link>
+                        {navigationTools.map((tool) => {
+                            const active = tool.slug === activeToolSlug;
+                            return (
+                                <Link
+                                    key={tool.slug}
+                                    href={`/${tool.slug}`}
+                                    className={cn(
+                                        "relative rounded-md px-3.5 py-1.5 text-xs font-medium tracking-wide transition-colors",
+                                        active
+                                            ? "text-foreground font-semibold after:absolute after:inset-x-3.5 after:-bottom-[14px] after:h-[2px] after:bg-foreground"
+                                            : "text-foreground/50 hover:text-foreground hover:bg-foreground/5",
+                                    )}
+                                >
+                                    {tool.label}
+                                </Link>
+                            );
+                        })}
+                    </nav>
 
-                        <nav className="flex min-h-0 flex-col items-center gap-1 overflow-y-auto py-1">
-                            {navigationTools.map((tool) => {
-                                const Icon = tool.icon;
-                                const active = tool.slug === activeToolSlug;
-                                return (
-                                    <Tooltip key={tool.slug} title={tool.label} placement="right">
-                                        <Link
-                                            href={`/${tool.slug}`}
-                                            className={cn(
-                                                "flex size-10 shrink-0 items-center justify-center rounded-xl transition",
-                                                active
-                                                    ? "bg-violet-500/14 text-violet-700 shadow-[inset_0_1px_rgba(255,255,255,.18)] dark:text-violet-300"
-                                                    : "text-slate-500 hover:bg-violet-500/9 hover:text-slate-950 dark:text-slate-400 dark:hover:text-white",
-                                            )}
-                                            aria-current={active ? "page" : undefined}
-                                            aria-label={tool.label}
-                                        >
-                                            <Icon className="size-5" />
-                                        </Link>
-                                    </Tooltip>
-                                );
-                            })}
-                        </nav>
-
-                        <div className="h-px w-8 shrink-0 bg-slate-900/10 dark:bg-white/10" />
-                        <UserStatusActions className="flex-col gap-1" />
-                    </aside>
-                </>
+                    {/* Right Controls */}
+                    <div className="flex items-center gap-2 min-w-[160px] justify-end">
+                        <Link
+                            href="/canvas"
+                            className="hidden items-center rounded-lg border border-border bg-card px-3 py-1 text-xs font-medium text-foreground/80 shadow-[0_1px_3px_rgba(0,0,0,0.05)] transition hover:border-foreground/30 hover:text-foreground sm:inline-flex"
+                        >
+                            快速创建
+                        </Link>
+                        <UserStatusActions compact />
+                        <button
+                            type="button"
+                            className="inline-flex size-8 items-center justify-center rounded-lg text-foreground/70 transition hover:bg-foreground/5 hover:text-foreground md:hidden"
+                            onClick={() => setMobileNavOpen(true)}
+                            aria-label="打开导航菜单"
+                            title="导航菜单"
+                        >
+                            <Menu className="size-4" />
+                        </button>
+                    </div>
+                </header>
             ) : null}
 
             <MobileNavDrawer open={mobileNavOpen} activeToolSlug={activeToolSlug} onClose={() => setMobileNavOpen(false)} />
