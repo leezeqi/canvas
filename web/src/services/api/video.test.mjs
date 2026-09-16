@@ -12,10 +12,11 @@ function fixture(protocol = "sub2api", token = "", channelMode = "local") {
     const payload = { id: "task_xxx", task_id: "task_xxx", status: "done", video: { url: "/v1/videos/generations/task_xxx/content", duration: 5 } };
     const modules = {
         axios: { post: async (url, body, options) => { calls.push({ url, body, ...options }); return { data: { id: "task_xxx", status: "queued" } }; }, get: async (url, options) => { calls.push({ url, ...options }); return { data: payload }; }, isAxiosError: () => false },
+        "@/lib/model-channel": { CANVAS_OPENAPI_VIDEO_PROTOCOL: "canvas-openapi-video" },
         "@/stores/use-config-store": { channelProtocolForConfig: (value) => value.protocol, localChannelForActiveModel: () => channel, channelIdForActiveModel: () => channel.id, directAIProviderForConfig: () => null, buildApiUrl: (base, path) => base.replace(/\/+$/, "").replace(/\/v1$/, "") + "/v1" + path },
         "@/stores/use-user-store": { useUserStore: { getState: () => ({ token, hydrateUser: async () => {} }) } },
-        "@/services/image-storage": { imageToDataUrl: async (reference) => reference.dataUrl, autoSyncToCloud: async () => null },
-        "@/services/file-storage": { uploadMediaFile: async (blob) => { assert.equal(await blob.text(), "mp4-bytes"); return { url: "blob:cached", storageKey: "cached" }; } },
+        "@/services/image-storage": { imageToDataUrl: async (reference) => reference.dataUrl, resolveImageUrl: async (_storageKey, url) => url, autoSyncToCloud: async () => null },
+        "@/services/file-storage": { resolveMediaUrl: async (_storageKey, url) => url, uploadMediaFile: async (blob) => { assert.equal(await blob.text(), "mp4-bytes"); return { url: "blob:cached", storageKey: "cached" }; } },
     };
     const load = (path) => {
         const exports = {};
@@ -39,6 +40,66 @@ function fixture(protocol = "sub2api", token = "", channelMode = "local") {
     modules["@/lib/video-model-capabilities"] = load("../../lib/video-model-capabilities.ts");
     return { api: load("./video.ts"), calls, config, payload };
 }
+
+test("Canvas OpenAPI video sends documented JSON fields for public references", async () => {
+    const { api, calls, config } = fixture("canvas-openapi-video");
+    config.model = config.videoModel = "5306c539-741f-4bf6-bac6-415d5c39bca1";
+    await api.createVideoGenerationTask(config, "电影感运镜", {
+        references: [{ url: "https://media.example/ref.png", dataUrl: "" }],
+        videoReferences: [{ url: "https://media.example/ref.mp4" }],
+        audioReferences: [{ url: "https://media.example/ref.mp3" }],
+        firstFrame: { url: "https://media.example/first.png", dataUrl: "" },
+        lastFrame: { url: "https://media.example/last.png", dataUrl: "" },
+    });
+    assert.deepEqual(JSON.parse(JSON.stringify(calls[0].body)), {
+        model: config.model,
+        prompt: "电影感运镜",
+        aspect_ratio: "16:9",
+        seconds: 5,
+        resolution: "720p",
+        reference_image_urls: ["https://media.example/ref.png"],
+        reference_videos: ["https://media.example/ref.mp4"],
+        reference_audios: ["https://media.example/ref.mp3"],
+        first_frame_url: "https://media.example/first.png",
+        last_frame_url: "https://media.example/last.png",
+    });
+});
+
+test("Canvas OpenAPI video uses multipart field names for local files", async () => {
+    const { api, calls, config } = fixture("canvas-openapi-video");
+    config.model = config.videoModel = "5306c539-741f-4bf6-bac6-415d5c39bca1";
+    await api.createVideoGenerationTask(config, "参考视频", { videoReferences: [{ name: "ref.mp4", type: "video/mp4", url: "blob:ref" }] });
+    const body = calls.find((call) => call.body)?.body;
+    assert.ok(body instanceof FormData);
+    assert.equal(body.get("model"), config.model);
+    assert.equal(body.get("aspect_ratio"), "16:9");
+    assert.equal(body.get("resolution"), "720p");
+    assert.equal(body.get("reference_videos")?.name, "ref.mp4");
+    assert.equal(body.has("video_reference[]"), false);
+});
+
+test("Canvas OpenAPI video unwraps nested success and failure responses", async () => {
+    const success = fixture("canvas-openapi-video");
+    success.config.model = success.config.videoModel = "5306c539-741f-4bf6-bac6-415d5c39bca1";
+    Object.assign(success.payload, { ok: true, data: { task_id: "task_xxx", status: "succeeded", result_url: "https://media.example/result.mp4" } });
+    delete success.payload.id;
+    delete success.payload.task_id;
+    delete success.payload.status;
+    delete success.payload.video;
+    const result = await success.api.pollCreatedVideoGenerationTask(success.config, { id: "task_xxx" });
+    assert.equal(result.task.status, "succeeded");
+    assert.equal(result.task.video_url, "https://media.example/result.mp4");
+
+    const failure = fixture("canvas-openapi-video");
+    failure.config.model = failure.config.videoModel = success.config.model;
+    Object.assign(failure.payload, { ok: true, data: { task_id: "task_xxx", status: "failed", error: "生成失败", upstream_error: "上游拒绝" } });
+    delete failure.payload.id;
+    delete failure.payload.task_id;
+    delete failure.payload.status;
+    delete failure.payload.video;
+    await assert.rejects(failure.api.pollCreatedVideoGenerationTask(failure.config, { id: "task_xxx" }), /生成失败：上游拒绝/);
+    assert.equal(failure.calls.length, 1);
+});
 
 test("Sub2API sends the documented JSON for text and single-image video", async () => {
     for (const model of ["grok-imagine-video", "grok-imagine-video-1.5"]) {

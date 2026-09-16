@@ -52,6 +52,7 @@ description: 当前画布节点的主要用途与操作流程
 - 从文本、图片或配置节点创建视频生成时，会在右侧生成新的视频节点并自动连接。
 - 生成配置节点的视频模式会读取上游文本作为 prompt，读取上游图片作为参考图，读取上游视频作为参考视频，并在输入预览里显示参考视频。
 - 视频生成接口支持 OpenAI 风格的 `POST /v1/videos`、`GET /v1/videos/{id}` 和 `GET /v1/videos/{id}/content`。
+- Canvas OpenAPI 视频中转站需选择独立的“Canvas OpenAPI（视频）”协议，手动填写 Base URL、API Key 和平台开放模型 UUID。公网参考素材使用 JSON URL 字段，本地图片、视频、音频及首尾帧使用 FormData 上传；任务提交后按返回的 `task_id` 轮询 `GET /v1/videos/{id}`。
 - 使用火山方舟 Seedance 时必须选择独立的“火山方舟”协议；标准按量 API 的 Base URL 为 `https://ark.cn-beijing.volces.com/api/v3`，Agent Plan 为 `https://ark.cn-beijing.volces.com/api/plan/v3`。系统会使用 `POST /contents/generations/tasks` 创建异步任务，并轮询 `GET /contents/generations/tasks/{id}`。
 - Agent Plan 专属 `/api/plan/v3` 当前未提供 OpenAI `/models` 模型列表接口，后台不会伪造模型列表；请手动填写 `doubao-seedance-2.0` 或文档列出的其他可用模型。
 - 火山方舟 Seedance 的参考图片支持公网 URL 或 Base64；参考视频和参考音频必须是火山服务器能够访问的 URL。

@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -450,8 +451,8 @@ func parseVideoTaskPayload(payload []byte, modelName string) parsedVideoTaskPayl
 		Progress:        readIntPath(data, "progress"),
 		Seconds:         firstNonEmpty(readStringPath(data, "seconds"), readStringPath(data, "duration")),
 		Size:            firstNonEmpty(readStringPath(data, "size"), readSizeFromDimensions(data)),
-		VideoURL:        firstNonEmpty(readStringPath(data, "video_url"), readStringPath(data, "url"), readStringPath(data, "remixed_from_video_id"), readStringPath(data, "output_url"), readStringPath(data, "download_url"), readStringPath(data, "content.video_url"), findFirstHTTPURL(data)),
-		Error:           firstNonEmpty(readStringPath(data, "error.message"), readStringPath(data, "error")),
+		VideoURL:        firstNonEmpty(readStringPath(data, "video_url"), readStringPath(data, "result_url"), readStringPath(data, "url"), readStringPath(data, "remixed_from_video_id"), readStringPath(data, "output_url"), readStringPath(data, "download_url"), readStringPath(data, "content.video_url"), findFirstHTTPURL(data)),
+		Error:           joinVideoTaskErrors(readStringPath(data, "error.message"), readStringPath(data, "error"), readStringPath(data, "upstream_error.message"), readStringPath(data, "upstream_error")),
 		ErrorDetail:     "",
 	}
 	if result.UpstreamTaskID == result.UpstreamVideoID && strings.HasPrefix(result.UpstreamVideoID, "video_") {
@@ -476,11 +477,26 @@ func parseVideoTaskPayload(payload []byte, modelName string) parsedVideoTaskPayl
 	return result
 }
 
+func joinVideoTaskErrors(values ...string) string {
+	result := []string{}
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" || slices.Contains(result, value) {
+			continue
+		}
+		result = append(result, value)
+	}
+	return strings.Join(result, "：")
+}
+
 func normalizeVideoPayloadMap(value any) map[string]any {
 	switch typed := value.(type) {
 	case map[string]any:
 		if data, ok := typed["data"].(map[string]any); ok {
 			for key, item := range typed {
+				if key == "data" {
+					continue
+				}
 				if _, exists := data[key]; !exists {
 					data[key] = item
 				}
@@ -490,6 +506,9 @@ func normalizeVideoPayloadMap(value any) map[string]any {
 		if data, ok := typed["data"].([]any); ok && len(data) > 0 {
 			if item, ok := data[0].(map[string]any); ok {
 				for key, value := range typed {
+					if key == "data" {
+						continue
+					}
 					if _, exists := item[key]; !exists {
 						item[key] = value
 					}

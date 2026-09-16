@@ -9,11 +9,12 @@ import (
 )
 
 const (
-	ModelChannelProtocolOpenAI   = "openai"
-	ModelChannelProtocolGrok2API = "grok2api"
-	ModelChannelProtocolSub2API  = "sub2api"
-	ModelChannelProtocolArk      = "ark"
-	ModelChannelProtocolJimeng  = "jimeng"
+	ModelChannelProtocolOpenAI             = "openai"
+	ModelChannelProtocolGrok2API           = "grok2api"
+	ModelChannelProtocolSub2API            = "sub2api"
+	ModelChannelProtocolCanvasOpenAPIVideo = "canvas-openapi-video"
+	ModelChannelProtocolArk                = "ark"
+	ModelChannelProtocolJimeng             = "jimeng"
 )
 
 type modelProtocolAdapter struct {
@@ -29,7 +30,7 @@ type modelProtocolRule struct {
 }
 
 var modelProtocolRegistry map[string]modelProtocolAdapter
-var modelProtocolIDs = []string{ModelChannelProtocolOpenAI, ModelChannelProtocolGemini, ModelChannelProtocolGrok2API, ModelChannelProtocolSub2API, ModelChannelProtocolMiniMax, ModelChannelProtocolMiMo, ModelChannelProtocolArk, ModelChannelProtocolJimeng}
+var modelProtocolIDs = []string{ModelChannelProtocolOpenAI, ModelChannelProtocolGemini, ModelChannelProtocolGrok2API, ModelChannelProtocolSub2API, ModelChannelProtocolCanvasOpenAPIVideo, ModelChannelProtocolMiniMax, ModelChannelProtocolMiMo, ModelChannelProtocolArk, ModelChannelProtocolJimeng}
 
 func init() {
 	compatible := modelProtocolAdapter{
@@ -61,6 +62,12 @@ func init() {
 		return "Sub2API Grok 视频渠道配置格式已通过；尚未验证 API Key、分组权限或余额，请使用【GROK】视频分组的 Key 在画布中测试生成。", nil
 	}
 	modelProtocolRegistry[ModelChannelProtocolSub2API] = sub2api
+
+	canvasOpenAPIVideo := compatible
+	canvasOpenAPIVideo.testModel = func(model.ModelChannel, string) (string, error) {
+		return "Canvas OpenAPI 视频渠道配置格式已通过；后台测试不会提交付费视频任务，请在视频创作台验证模型权限、余额和生成参数。", nil
+	}
+	modelProtocolRegistry[ModelChannelProtocolCanvasOpenAPIVideo] = canvasOpenAPIVideo
 
 	minimax := compatible
 	minimax.buildURL = func(channel model.ModelChannel, path string) string {
@@ -111,6 +118,9 @@ var modelDiscoveryRules = []modelProtocolRule{
 
 var modelConfigTestRules = []modelProtocolRule{
 	{ModelChannelProtocolSub2API, func(channel model.ModelChannel, _ string) bool { return strings.EqualFold(strings.TrimSpace(channel.Protocol), ModelChannelProtocolSub2API) }},
+	{ModelChannelProtocolCanvasOpenAPIVideo, func(channel model.ModelChannel, _ string) bool {
+		return strings.EqualFold(strings.TrimSpace(channel.Protocol), ModelChannelProtocolCanvasOpenAPIVideo)
+	}},
 	{ModelChannelProtocolMiniMax, func(channel model.ModelChannel, _ string) bool { return IsMiniMaxChannel(channel) }},
 	{ModelChannelProtocolArk, func(channel model.ModelChannel, _ string) bool { return IsArkChannel(channel) }},
 	{ModelChannelProtocolJimeng, func(channel model.ModelChannel, _ string) bool { return IsJimengChannel(channel) }},

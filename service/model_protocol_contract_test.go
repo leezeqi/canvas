@@ -14,7 +14,7 @@ import (
 )
 
 func TestModelProtocolAuthContract(t *testing.T) {
-	for _, protocol := range []string{"", "openai", " GEMINI ", "grok2api", "sub2api", "metaso", "mimo", "ark", "unknown"} {
+	for _, protocol := range []string{"", "openai", " GEMINI ", "grok2api", "sub2api", "canvas-openapi-video", "metaso", "mimo", "ark", "unknown"} {
 		request := httptest.NewRequest(http.MethodPost, "https://upstream.invalid", nil)
 		request.Header.Set("Authorization", "existing authorization")
 		request.Header.Set("x-goog-api-key", "existing google key")
@@ -88,6 +88,7 @@ func TestModelProtocolConfigTestsDoNotGenerate(t *testing.T) {
 	})
 	tests := []struct{ protocol, baseURL, model, want string }{
 		{"sub2api", "https://api.example", "grok-imagine-video", "Sub2API Grok 视频渠道配置格式已通过；尚未验证 API Key、分组权限或余额，请使用【GROK】视频分组的 Key 在画布中测试生成。"},
+		{"canvas-openapi-video", "https://api.example", "5306c539-741f-4bf6-bac6-415d5c39bca1", "Canvas OpenAPI 视频渠道配置格式已通过；后台测试不会提交付费视频任务，请在视频创作台验证模型权限、余额和生成参数。"},
 		{"metaso", "https://api.example/api/plan/v3", "seedance", "MiniMax-H3 是异步视频模型，请在视频创作台测试生成。"},
 		{"ark", "https://api.example/api/plan/v3", "deployment", "Agent Plan / Seedance 视频模型配置格式已通过。后台测试不会调用视频生成接口，因此未验证 API Key、套餐额度或模型权限；请在画布中使用视频生成验证。"},
 		{"gemini", "https://api.example", "veo-3", "模型列表与渠道配置有效；图片、视频和语音模型未执行付费生成测试。"},

@@ -6,6 +6,7 @@ import { dataUrlToGeminiInlineData, geminiActionUrl, geminiDirectHeaders, gemini
 import { isGeminiVeo31Model, normalizeGeminiVideoDuration, normalizeGeminiVideoRatio, normalizeGeminiVideoResolution } from "@/lib/gemini-video";
 import { boolConfig, isSeedanceVideoConfig, normalizeSeedanceDuration, normalizeSeedanceRatio } from "@/lib/seedance-video";
 import { isAgnesVideoV25Model, isCogVideoX3Model, modelKey, normalizeCogVideoX3Duration, supportsVideoAudioGeneration } from "@/lib/video-model-capabilities";
+import { CANVAS_OPENAPI_VIDEO_PROTOCOL } from "@/lib/model-channel";
 import { resolveMediaUrl, uploadMediaFile, uploadRemoteMediaToServer } from "@/services/file-storage";
 import { autoSyncToCloud, imageToDataUrl, resolveImageUrl } from "@/services/image-storage";
 import { buildApiUrl, channelIdForActiveModel, channelProtocolForConfig, directAIProviderForConfig, localChannelForActiveModel, type AiConfig } from "@/stores/use-config-store";
@@ -301,6 +302,7 @@ async function createAgnesVideoV25RequestBody(config: AiConfig, model: string, p
 
 async function createVideoRequestBody(config: AiConfig, model: string, prompt: string, input: Required<VideoReferenceInput>) {
     if (videoChannelProtocol(config, model) === "sub2api") return createSub2APIVideoRequestBody(config, model, prompt, input);
+    if (videoChannelProtocol(config, model) === CANVAS_OPENAPI_VIDEO_PROTOCOL) return createCanvasOpenAPIVideoRequestBody(config, model, prompt, input);
     if (videoChannelProtocol(config, model) === "ark") return createArkSeedanceVideoRequestBody(config, model, prompt, input);
     if (videoChannelProtocol(config, model) === "jimeng") return createJimengVideoRequestBody(config, model, prompt, input);
     const size = normalizeVideoSize(config.size);
@@ -353,6 +355,53 @@ async function createVideoRequestBody(config: AiConfig, model: string, prompt: s
     const audioFiles = await Promise.all(input.audioReferences.map(mediaReferenceToFormValue));
     audioFiles.forEach((file) => body.append("audio_reference[]", file));
     return body;
+}
+
+async function createCanvasOpenAPIVideoRequestBody(config: AiConfig, model: string, prompt: string, input: Required<VideoReferenceInput>) {
+    const [images, videos, audios, firstFrame, lastFrame] = await Promise.all([
+        Promise.all(input.references.map(imageReferenceToFormValue)),
+        Promise.all(input.videoReferences.map(mediaReferenceToFormValue)),
+        Promise.all(input.audioReferences.map(mediaReferenceToFormValue)),
+        input.firstFrame ? imageReferenceToFormValue(input.firstFrame) : null,
+        input.lastFrame ? imageReferenceToFormValue(input.lastFrame) : null,
+    ]);
+    const ratio = normalizeSeedanceRatio(config.size);
+    const base: Record<string, string | number> = {
+        model,
+        prompt,
+        seconds: Number(normalizeVideoSeconds(config.videoSeconds)),
+        resolution: normalizeVideoResolution(config.vquality),
+    };
+    if (ratio !== "adaptive") base.aspect_ratio = ratio;
+
+    const references = [...images, ...videos, ...audios, firstFrame, lastFrame].filter((value) => value !== null);
+    if (references.every((value) => typeof value === "string")) {
+        return {
+            ...base,
+            ...(images.length ? { reference_image_urls: images as string[] } : {}),
+            ...(videos.length ? { reference_videos: videos as string[] } : {}),
+            ...(audios.length ? { reference_audios: audios as string[] } : {}),
+            ...(typeof firstFrame === "string" ? { first_frame_url: firstFrame } : {}),
+            ...(typeof lastFrame === "string" ? { last_frame_url: lastFrame } : {}),
+        };
+    }
+
+    const body = new FormData();
+    Object.entries(base).forEach(([key, value]) => body.append(key, String(value)));
+    appendCanvasOpenAPIReferences(body, images, "reference_image_urls", "reference_images");
+    appendCanvasOpenAPIReferences(body, videos, "reference_videos", "reference_videos");
+    appendCanvasOpenAPIReferences(body, audios, "reference_audios", "reference_audios");
+    appendCanvasOpenAPIFrame(body, firstFrame, "first_frame_url", "first_frame_image");
+    appendCanvasOpenAPIFrame(body, lastFrame, "last_frame_url", "last_frame_image");
+    return body;
+}
+
+function appendCanvasOpenAPIReferences(body: FormData, values: Array<string | File>, urlField: string, fileField: string) {
+    values.forEach((value) => body.append(typeof value === "string" ? urlField : fileField, value));
+}
+
+function appendCanvasOpenAPIFrame(body: FormData, value: string | File | null, urlField: string, fileField: string) {
+    if (value) body.append(typeof value === "string" ? urlField : fileField, value);
 }
 
 async function createArkSeedanceVideoRequestBody(config: AiConfig, model: string, prompt: string, input: Required<VideoReferenceInput>) {
@@ -637,6 +686,7 @@ function unwrapVideoResponse(payload: ApiVideoResponse): VideoResponse {
 }
 
 function unwrapVideoResponseForConfig(config: AiConfig, model: string, payload: ApiVideoResponse) {
+    if (videoChannelProtocol(config, model) === CANVAS_OPENAPI_VIDEO_PROTOCOL) return normalizeCanvasOpenAPIVideoResponse(payload);
     if (videoChannelProtocol(config, model) === "sub2api") {
         const task = unwrapVideoResponse(payload);
         if (usesAccountProxy(config)) return task;
@@ -661,6 +711,23 @@ function unwrapVideoResponseForConfig(config: AiConfig, model: string, payload: 
         }
     }
     return unwrapVideoResponse(payload);
+}
+
+function normalizeCanvasOpenAPIVideoResponse(payload: ApiVideoResponse): VideoResponse {
+    const root = payload as unknown as Record<string, unknown>;
+    if (typeof root.code === "number" && root.code !== 0) throw new VideoRequestError(firstString(root.msg, root.message, nestedMessage(root.error)) || "请求失败", payload);
+    if (root.ok === false) throw new VideoRequestError(firstString(nestedMessage(root.error), root.message) || "请求失败", payload);
+    const data = root.data && typeof root.data === "object" && !Array.isArray(root.data) ? root.data as Record<string, unknown> : root;
+    const error = firstString(typeof data.error === "string" ? data.error : nestedMessage(data.error));
+    const upstreamError = firstString(typeof data.upstream_error === "string" ? data.upstream_error : nestedMessage(data.upstream_error));
+    const message = [error, upstreamError].filter((value, index, values) => value && values.indexOf(value) === index).join("：");
+    return normalizeVideoResponse({
+        ...data,
+        id: firstString(data.id, data.task_id, data.taskId),
+        task_id: firstString(data.task_id, data.taskId, data.id),
+        video_url: firstString(data.video_url, data.result_url, data.url),
+        ...(message ? { error: { message } } : {}),
+    });
 }
 
 async function createGeminiVeoRequestBody(config: AiConfig, model: string, prompt: string, input: Required<VideoReferenceInput>) {

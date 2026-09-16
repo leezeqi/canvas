@@ -1,3 +1,5 @@
+import { CANVAS_OPENAPI_VIDEO_PROTOCOL } from "@/lib/model-channel";
+
 export function modelKey(modelName: string) {
     return modelName.trim().toLowerCase().replace(/[._/]+/g, "-");
 }
@@ -20,6 +22,7 @@ export function normalizeCogVideoX3Duration(value: string) {
 export function supportsVideoFrameReferences(modelName: string, protocol = "") {
     const model = modelKey(modelName);
     return (
+        protocol === CANVAS_OPENAPI_VIDEO_PROTOCOL ||
         isAgnesVideoV25Model(model) ||
         isCogVideoX3Model(model) ||
         model === "bytedance-seedance-2" ||
