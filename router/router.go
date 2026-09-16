@@ -91,6 +91,7 @@ func New() *gin.Engine {
 	})
 	v1.GET("/user-config", gin.WrapF(handler.UserConfig))
 	v1.POST("/user-config/model", gin.WrapF(handler.SaveUserModelConfig))
+	v1.POST("/user-config/canvas-openapi-models", gin.WrapF(handler.UserCanvasOpenAPIModels))
 	v1.POST("/user-config/storage", gin.WrapF(handler.SaveUserStorageProvider))
 	v1.GET("/canvas/projects", gin.WrapF(handler.UserCanvasProjects))
 	v1.POST("/canvas/projects", gin.WrapF(handler.SaveUserCanvasProject))

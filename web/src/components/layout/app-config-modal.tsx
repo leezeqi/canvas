@@ -7,7 +7,7 @@ import { ChannelModelSelectorModal } from "@/components/channel-model-selector-m
 import { GrokTtsVoiceSelect } from "@/components/grok-tts-voice-select";
 import { ModelPicker } from "@/components/model-picker";
 import { fetchImageModels } from "@/services/api/image";
-import { fetchUserConfig, measureUserStorageProvider, syncUserModelConfig, syncUserStorageProvider } from "@/services/api/user-config";
+import { fetchCanvasOpenAPIModels, fetchUserConfig, measureUserStorageProvider, syncUserModelConfig, syncUserStorageProvider } from "@/services/api/user-config";
 import { clearStorageConfigCache as clearFileStorageCache } from "@/services/file-storage";
 import { clearStorageConfigCache as clearImageStorageCache, defaultUserStorageProvider, defaultUserWebDAVStorageProvider, loadStorageConfig, loadUserS3StorageProvider, loadUserWebDAVStorageProvider, saveUserStorageProvider, saveUserWebDAVStorageProvider, type UserStorageProvider } from "@/services/image-storage";
 import { audioFormatOptions, audioVoiceOptions, glmTtsFormatOptions, glmTtsVoiceOptions, isGlmTtsModel, normalizeAudioSpeedValue, normalizeGlmTtsFormat, normalizeGlmTtsSpeed, normalizeGlmTtsVoice } from "@/lib/audio-generation";
@@ -15,7 +15,7 @@ import { grokTtsFormatOptions, grokTtsLanguageOptions, isGrok2APITtsConfig, norm
 import { isGeminiConfig, isGeminiTtsModel } from "@/lib/gemini";
 import { geminiTtsVoiceOptions, normalizeGeminiTtsVoice } from "@/lib/gemini-tts";
 import { isMimoPresetTtsModel, isMimoTtsModel, isMimoVoiceCloneModel, isMimoVoiceDesignModel, mimoTtsFormatOptions, mimoTtsVoiceOptions } from "@/lib/mimo-tts";
-import { modelChannelApiKeyUrls, modelChannelDefaultBaseUrls, modelChannelProtocolOptions } from "@/lib/model-channel";
+import { CANVAS_OPENAPI_VIDEO_PROTOCOL, modelChannelApiKeyUrls, modelChannelDefaultBaseUrls, modelChannelProtocolOptions } from "@/lib/model-channel";
 import { filterChannelModelsByCapability, normalizeLocalChannels, useConfigStore, useEffectiveConfig, type AiConfig, type LocalModelChannel, type ModelCapability } from "@/stores/use-config-store";
 import { useUserStore } from "@/stores/use-user-store";
 
@@ -173,13 +173,15 @@ export function AppConfigModal() {
         }
         setLoadingModels(true);
         try {
-            const results = await Promise.allSettled(channels.map(async (channel) => fetchImageModels(configForLocalChannel(config, channel))));
+            const results = await Promise.allSettled(channels.map((channel) => fetchLocalChannelModels(config, channel, token)));
             updateLocalChannels(channels.map((channel, index) => {
                 const result = results[index];
                 return result.status === "fulfilled" ? { ...channel, models: result.value } : channel;
             }));
             const failedCount = results.filter((result) => result.status === "rejected").length;
-            if (failedCount) message.warning(`${failedCount} 个渠道拉取失败，已保留原有模型，可在“选择”中手动增加模型`);
+            const canvasLoginRequired = !token && channels.some((channel, index) => channel.protocol === CANVAS_OPENAPI_VIDEO_PROTOCOL && results[index].status === "rejected");
+            if (canvasLoginRequired) message.warning("Canvas OpenAPI 模型拉取需要先登录；已保留原有模型，也可在“选择”中手动增加模型 UUID");
+            else if (failedCount) message.warning(`${failedCount} 个渠道拉取失败，已保留原有模型，可在“选择”中手动增加模型`);
             else message.success("模型列表已更新");
         } finally {
             setLoadingModels(false);
@@ -243,7 +245,7 @@ export function AppConfigModal() {
             message.error("请先填写该渠道的 Base URL 和 API Key");
             return;
         }
-        return uniqueModels(await fetchImageModels(configForLocalChannel(config, modelSelectChannel)));
+        return uniqueModels(await fetchLocalChannelModels(config, modelSelectChannel, token));
     };
 
 
@@ -554,6 +556,12 @@ function configForLocalChannel(config: AiConfig, channel: LocalModelChannel): Ai
         audioChannelId: channel.id,
         model: channel.models[0] || config.model,
     };
+}
+
+function fetchLocalChannelModels(config: AiConfig, channel: LocalModelChannel, token: string) {
+    if (channel.protocol !== CANVAS_OPENAPI_VIDEO_PROTOCOL) return fetchImageModels(configForLocalChannel(config, channel));
+    if (!token) return Promise.reject(new Error("请先登录后拉取 Canvas OpenAPI 模型，或手动填写模型 UUID"));
+    return fetchCanvasOpenAPIModels(token, channel);
 }
 
 function channelIdForLocalModel(channels: LocalModelChannel[], model: string, currentId: string) {

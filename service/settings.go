@@ -490,12 +490,16 @@ func fetchAdminChannelModels(channel model.ModelChannel) ([]string, error) {
 }
 
 func fetchOpenAIAdminChannelModels(channel model.ModelChannel) ([]string, error) {
+	return fetchOpenAIChannelModels(adminModelHTTPClient, channel)
+}
+
+func fetchOpenAIChannelModels(client *http.Client, channel model.ModelChannel) ([]string, error) {
 	request, err := http.NewRequest(http.MethodGet, BuildModelChannelURL(channel, "/models"), nil)
 	if err != nil {
 		return nil, err
 	}
 	SetModelChannelAuthHeader(request, channel)
-	response, err := adminModelHTTPClient.Do(request)
+	response, err := client.Do(request)
 	if err != nil {
 		return nil, safeMessageError{message: "读取模型失败：上游接口无响应或网络不可达"}
 	}

@@ -1,5 +1,5 @@
 import { apiDelete, apiGet, apiPost } from "@/services/api/request";
-import type { AiConfig } from "@/stores/use-config-store";
+import type { AiConfig, LocalModelChannel } from "@/stores/use-config-store";
 import { toProviderPayload, type UserS3StorageProvider, type UserStorageProvider, type UserWebDAVStorageProvider } from "@/services/image-storage";
 
 export type UserConfigPayload = {
@@ -31,6 +31,10 @@ export async function fetchUserConfig(token: string) {
 
 export async function syncUserModelConfig(token: string, config: AiConfig) {
     return apiPost<UserConfigPayload>("/api/v1/user-config/model", { config }, token);
+}
+
+export async function fetchCanvasOpenAPIModels(token: string, channel: LocalModelChannel) {
+    return apiPost<string[]>("/api/v1/user-config/canvas-openapi-models", { channel }, token);
 }
 
 export type UserStorageProviders = {

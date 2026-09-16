@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/tigerowo/infinite-canvas/model"
 	"github.com/tigerowo/infinite-canvas/service"
 )
 
@@ -30,6 +31,22 @@ func SaveUserModelConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	OK(w, config)
+}
+
+func UserCanvasOpenAPIModels(w http.ResponseWriter, r *http.Request) {
+	var request struct {
+		Channel model.ModelChannel `json:"channel"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		Fail(w, "渠道参数无效")
+		return
+	}
+	models, err := service.CurrentUserCanvasOpenAPIModels(r.Context(), request.Channel)
+	if err != nil {
+		FailError(w, err)
+		return
+	}
+	OK(w, models)
 }
 
 func DeleteUserCanvasProjects(w http.ResponseWriter, r *http.Request) {
