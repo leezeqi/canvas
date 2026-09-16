@@ -166,6 +166,11 @@ var builtinAIProtocols = []aiProtocolAdapter{
 		},
 	},
 	{
+		id:            service.ModelChannelProtocolSub2API,
+		path:          sub2APIVideoPath,
+		videoResponse: transformSub2APIVideoPayload,
+	},
+	{
 		id: service.ModelChannelProtocolArk,
 		path: func(channel model.ModelChannel, _ string, path string) (string, bool) {
 			if !service.IsArkChannel(channel) {

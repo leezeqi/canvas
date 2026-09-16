@@ -14,7 +14,7 @@ import (
 )
 
 func TestModelProtocolAuthContract(t *testing.T) {
-	for _, protocol := range []string{"", "openai", " GEMINI ", "grok2api", "metaso", "mimo", "ark", "unknown"} {
+	for _, protocol := range []string{"", "openai", " GEMINI ", "grok2api", "sub2api", "metaso", "mimo", "ark", "unknown"} {
 		request := httptest.NewRequest(http.MethodPost, "https://upstream.invalid", nil)
 		request.Header.Set("Authorization", "existing authorization")
 		request.Header.Set("x-goog-api-key", "existing google key")
@@ -42,6 +42,7 @@ func TestModelProtocolStaticDiscoveryPrecedence(t *testing.T) {
 		want                    []string
 	}{
 		{"metaso static models", "metaso", "https://api.example", MiniMaxModels()},
+		{"sub2api documented models", "sub2api", "https://api.example", []string{"grok-imagine-video", "grok-imagine-video-1.5"}},
 		{"jimeng static models", "jimeng", "https://api.example", JimengModels()},
 		{"mimo static models", "mimo", "https://api.example", mimo},
 	}
@@ -86,6 +87,7 @@ func TestModelProtocolConfigTestsDoNotGenerate(t *testing.T) {
 		return nil, errors.New("network forbidden")
 	})
 	tests := []struct{ protocol, baseURL, model, want string }{
+		{"sub2api", "https://api.example", "grok-imagine-video", "Sub2API Grok 视频渠道配置格式已通过；尚未验证 API Key、分组权限或余额，请使用【GROK】视频分组的 Key 在画布中测试生成。"},
 		{"metaso", "https://api.example/api/plan/v3", "seedance", "MiniMax-H3 是异步视频模型，请在视频创作台测试生成。"},
 		{"ark", "https://api.example/api/plan/v3", "deployment", "Agent Plan / Seedance 视频模型配置格式已通过。后台测试不会调用视频生成接口，因此未验证 API Key、套餐额度或模型权限；请在画布中使用视频生成验证。"},
 		{"gemini", "https://api.example", "veo-3", "模型列表与渠道配置有效；图片、视频和语音模型未执行付费生成测试。"},

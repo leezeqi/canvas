@@ -11,6 +11,7 @@ import (
 const (
 	ModelChannelProtocolOpenAI   = "openai"
 	ModelChannelProtocolGrok2API = "grok2api"
+	ModelChannelProtocolSub2API  = "sub2api"
 	ModelChannelProtocolArk      = "ark"
 	ModelChannelProtocolJimeng  = "jimeng"
 )
@@ -28,7 +29,7 @@ type modelProtocolRule struct {
 }
 
 var modelProtocolRegistry map[string]modelProtocolAdapter
-var modelProtocolIDs = []string{ModelChannelProtocolOpenAI, ModelChannelProtocolGemini, ModelChannelProtocolGrok2API, ModelChannelProtocolMiniMax, ModelChannelProtocolMiMo, ModelChannelProtocolArk, ModelChannelProtocolJimeng}
+var modelProtocolIDs = []string{ModelChannelProtocolOpenAI, ModelChannelProtocolGemini, ModelChannelProtocolGrok2API, ModelChannelProtocolSub2API, ModelChannelProtocolMiniMax, ModelChannelProtocolMiMo, ModelChannelProtocolArk, ModelChannelProtocolJimeng}
 
 func init() {
 	compatible := modelProtocolAdapter{
@@ -51,6 +52,15 @@ func init() {
 	gemini.models = fetchGeminiAdminChannelModels
 	gemini.testModel = testGeminiChannelModel
 	modelProtocolRegistry[ModelChannelProtocolGemini] = gemini
+
+	sub2api := compatible
+	sub2api.models = func(model.ModelChannel) ([]string, error) {
+		return []string{"grok-imagine-video", "grok-imagine-video-1.5"}, nil
+	}
+	sub2api.testModel = func(model.ModelChannel, string) (string, error) {
+		return "Sub2API Grok 视频渠道配置格式已通过；尚未验证 API Key、分组权限或余额，请使用【GROK】视频分组的 Key 在画布中测试生成。", nil
+	}
+	modelProtocolRegistry[ModelChannelProtocolSub2API] = sub2api
 
 	minimax := compatible
 	minimax.buildURL = func(channel model.ModelChannel, path string) string {
@@ -91,6 +101,7 @@ func init() {
 
 // 发现模型、配置测试与生成的命中规则不同，分别保留原有优先级。
 var modelDiscoveryRules = []modelProtocolRule{
+	{ModelChannelProtocolSub2API, func(channel model.ModelChannel, _ string) bool { return strings.EqualFold(strings.TrimSpace(channel.Protocol), ModelChannelProtocolSub2API) }},
 	{ModelChannelProtocolGemini, func(channel model.ModelChannel, _ string) bool { return IsGeminiChannel(channel) }},
 	{ModelChannelProtocolMiniMax, func(channel model.ModelChannel, _ string) bool { return IsMiniMaxChannel(channel) }},
 	{ModelChannelProtocolMiMo, func(channel model.ModelChannel, _ string) bool { return IsMiMoChannel(channel) }},
@@ -99,6 +110,7 @@ var modelDiscoveryRules = []modelProtocolRule{
 }
 
 var modelConfigTestRules = []modelProtocolRule{
+	{ModelChannelProtocolSub2API, func(channel model.ModelChannel, _ string) bool { return strings.EqualFold(strings.TrimSpace(channel.Protocol), ModelChannelProtocolSub2API) }},
 	{ModelChannelProtocolMiniMax, func(channel model.ModelChannel, _ string) bool { return IsMiniMaxChannel(channel) }},
 	{ModelChannelProtocolArk, func(channel model.ModelChannel, _ string) bool { return IsArkChannel(channel) }},
 	{ModelChannelProtocolJimeng, func(channel model.ModelChannel, _ string) bool { return IsJimengChannel(channel) }},

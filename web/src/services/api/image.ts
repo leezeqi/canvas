@@ -1223,6 +1223,7 @@ export async function fetchImageModels(config: AiConfig) {
     if (config.channelMode === "remote") return config.models;
     const channel = localChannelForActiveModel(config);
     if (channel?.protocol === "gemini") return fetchGeminiModels(channel.baseUrl, channel.apiKey);
+    if (channel?.protocol === "sub2api") return ["grok-imagine-video", "grok-imagine-video-1.5"];
     if (isMiniMaxChannel(channel)) return [...miniMaxModels];
     if (channel?.protocol === "jimeng") return [...JIMENG_IMAGE_MODELS];
     if (isMimoChannel(channel || { baseUrl: config.baseUrl })) return [...mimoModels];

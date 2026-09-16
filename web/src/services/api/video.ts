@@ -230,9 +230,11 @@ function isGrok2APIVideoConfig(config: AiConfig, model: string) {
 async function cacheProtectedVideo(config: AiConfig, model: string, task: VideoResponse) {
     const url = task.video_url || task.url || "";
     const needsGrokContent = isGrok2APIVideoConfig(config, model) && /\/v1\/videos\/[^/]+\/content(?:[?#]|$)/.test(url);
-    if (!isCompletedVideoStatus(task.status) || task.storageKey || !needsGrokContent) return task;
+    const needsSub2APIContent = videoChannelProtocol(config, model) === "sub2api" && /\/v1\/videos\/generations\/[^/]+\/content(?:[?#]|$)/.test(url);
+    if (!isCompletedVideoStatus(task.status) || task.storageKey || (!needsGrokContent && !needsSub2APIContent)) return task;
     const taskId = task.task_id || task.id || task.video_id || "";
-    const response = await fetch(`${aiApiUrl(config, `/videos/${encodeURIComponent(taskId)}/content`)}?model=${encodeURIComponent(model)}`, { headers: aiHeaders(config) });
+    const path = `/videos/${needsSub2APIContent && !usesAccountProxy(config) ? "generations/" : ""}${encodeURIComponent(taskId)}/content`;
+    const response = await fetch(`${aiApiUrl(config, path)}?model=${encodeURIComponent(model)}`, { headers: aiHeaders(config) });
     if (!response.ok) throw new VideoRequestError(`视频内容下载失败：${response.status}`, task);
     const media = await uploadMediaFile(await response.blob(), "generated-video", `video-content:${videoSyncKey(config, task)}`);
     return { ...task, url: media.url, video_url: media.url, storageKey: media.storageKey };
@@ -253,6 +255,23 @@ async function createGrok2APIVideoRequestBody(config: AiConfig, model: string, p
     else if (urls.length > 1) body.reference_images = urls.map((url) => ({ url }));
 
     return body;
+}
+
+async function createSub2APIVideoRequestBody(config: AiConfig, model: string, prompt: string, input: Required<VideoReferenceInput>) {
+    if (!["grok-imagine-video", "grok-imagine-video-1.5"].includes(model)) throw new VideoRequestError("Sub2API 渠道当前仅支持 Grok 视频模型");
+    if (input.firstFrame || input.lastFrame || input.videoReferences.length || input.audioReferences.length) throw new VideoRequestError("Sub2API Grok 视频仅支持普通单图参考，不支持首尾帧、参考视频或参考音频");
+    if (input.references.length > 1 || (input.references.length && model !== "grok-imagine-video-1.5")) throw new VideoRequestError("Sub2API 图生视频需要 grok-imagine-video-1.5，且只能使用一张参考图");
+    const seconds = Number(config.videoSeconds || "5");
+    const resolution = normalizeVideoResolution(config.vquality);
+    const ratio = normalizeSeedanceRatio(config.size);
+    const aspectRatio = ratio === "adaptive" ? "16:9" : ratio;
+    if (!Number.isInteger(seconds) || seconds < 1) throw new VideoRequestError("Sub2API Grok 视频时长必须为正整数秒");
+    if (!["480p", "720p", "1080p"].includes(resolution)) throw new VideoRequestError("Sub2API Grok 视频仅支持 480p、720p、1080p");
+    if (!["16:9", "9:16", "1:1"].includes(aspectRatio)) throw new VideoRequestError("Sub2API Grok 视频仅支持 16:9、9:16、1:1 比例");
+    return {
+        model, prompt, seconds, resolution, aspect_ratio: aspectRatio,
+        ...(input.references.length ? { image: await imageToDataUrl(input.references[0]) } : {}),
+    };
 }
 
 async function createAgnesVideoV25RequestBody(config: AiConfig, model: string, prompt: string, input: Required<VideoReferenceInput>) {
@@ -281,6 +300,7 @@ async function createAgnesVideoV25RequestBody(config: AiConfig, model: string, p
 }
 
 async function createVideoRequestBody(config: AiConfig, model: string, prompt: string, input: Required<VideoReferenceInput>) {
+    if (videoChannelProtocol(config, model) === "sub2api") return createSub2APIVideoRequestBody(config, model, prompt, input);
     if (videoChannelProtocol(config, model) === "ark") return createArkSeedanceVideoRequestBody(config, model, prompt, input);
     if (videoChannelProtocol(config, model) === "jimeng") return createJimengVideoRequestBody(config, model, prompt, input);
     const size = normalizeVideoSize(config.size);
@@ -617,6 +637,14 @@ function unwrapVideoResponse(payload: ApiVideoResponse): VideoResponse {
 }
 
 function unwrapVideoResponseForConfig(config: AiConfig, model: string, payload: ApiVideoResponse) {
+    if (videoChannelProtocol(config, model) === "sub2api") {
+        const task = unwrapVideoResponse(payload);
+        if (usesAccountProxy(config)) return task;
+        const video = (task as VideoResponse & { video?: { url?: string } }).video;
+        const url = firstString(task.video_url, task.url, video?.url);
+        const channel = localChannelForActiveModel(config);
+        return url ? { ...task, video_url: new URL(url, channel?.baseUrl || config.baseUrl).href } : task;
+    }
     if (isGeminiVideoModel(model) && isGeminiConfig(config, model)) return normalizeGeminiVideoResponse(payload);
     if (isMiniMaxH3Config(config, model)) {
         const root = payload as unknown as Record<string, unknown>;
