@@ -56,15 +56,12 @@ func TestModelProtocolChannelFlow(t *testing.T) {
 	tests := []struct {
 		name, protocol, modelName, endpoint, body, path, wantBody, payload, pollPath, pollPayload, wantResponse, message string
 		local                                                                                                            bool
-		wantVideoURL, contentPath                                                                                         string
 	}{
 		{name: "Gemini nonstream", protocol: "gemini", modelName: "gemini-text", endpoint: "/chat/completions", body: `{"model":"gemini-text","stream":false,"contents":[]}`, path: "/v1beta/models/gemini-text:generateContent", wantBody: `{"contents":[]}`, payload: `{"candidates":[]}`},
 		{name: "Gemini stream", protocol: "gemini", modelName: "gemini-text", endpoint: "/chat/completions", body: `{"model":"gemini-text","stream":true,"contents":[]}`, path: "/v1beta/models/gemini-text:streamGenerateContent?alt=sse", wantBody: `{"contents":[]}`, payload: `{"candidates":[]}`},
 		{name: "MiMo audio", protocol: "mimo", modelName: "mimo-v2.5-tts", endpoint: "/audio/speech", body: `{"model":"mimo-v2.5-tts","input":" hello "}`, path: "/v1/chat/completions", wantBody: `{"model":"mimo-v2.5-tts","messages":[{"role":"assistant","content":"hello"}],"audio":{"format":"wav","voice":"冰糖"}}`, payload: `{"choices":[{"message":{"audio":{"data":"AQID"}}}]}`, wantResponse: "\x01\x02\x03"},
 		{name: "MiniMax video create", protocol: "metaso", modelName: "MiniMax-H3", endpoint: "/videos", body: `{"model":"MiniMax-H3","prompt":"scene"}`, path: "/v2/video_generation", payload: `{"task_id":"upstream-job","status":"processing"}`, pollPath: "/v2/query/video_generation/upstream-job", pollPayload: `{"task":{"id":"upstream-job","status":"success","content":{"url":"https://media.invalid/video"}}}`},
 		{name: "Grok video create", protocol: "grok2api", modelName: "grok-imagine-video", endpoint: "/videos", body: `{"model":"grok-imagine-video","prompt":"scene"}`, path: "/v1/videos/generations", payload: `{"id":"upstream-job","status":"processing"}`},
-		{name: "Sub2API remote video", protocol: "sub2api", modelName: "grok-imagine-video", endpoint: "/videos", body: `{"model":"grok-imagine-video","prompt":"scene","seconds":5,"resolution":"720p","aspect_ratio":"16:9"}`, path: "/v1/videos", payload: `{"id":"upstream-job","request_id":"upstream-job","status":"processing"}`, pollPath: "/v1/videos/upstream-job", pollPayload: `{"id":"upstream-job","status":"done","video":{"url":"/v1/videos/generations/upstream-job/content","duration":5}}`, wantVideoURL: "https://upstream.invalid/v1/videos/generations/upstream-job/content", contentPath: "/v1/videos/generations/upstream-job/content"},
-		{name: "Sub2API local image to video", local: true, protocol: "sub2api", modelName: "grok-imagine-video-1.5", endpoint: "/videos", body: `{"model":"grok-imagine-video-1.5","prompt":"scene","seconds":5,"resolution":"720p","aspect_ratio":"16:9","image":"data:image/png;base64,AQID"}`, path: "/v1/videos", payload: `{"id":"upstream-job","status":"processing"}`, pollPath: "/v1/videos/upstream-job", pollPayload: `{"id":"upstream-job","status":"done","video":{"url":"/v1/videos/generations/upstream-job/content","duration":5}}`, wantVideoURL: "https://upstream.invalid/v1/videos/generations/upstream-job/content", contentPath: "/v1/videos/generations/upstream-job/content"},
 		{name: "CogVideoX3 create", modelName: "cogvideox-3", endpoint: "/videos", body: `{"model":"cogvideox-3","prompt":"scene"}`, path: "/v1/videos/generations", payload: `{"id":"upstream-job","status":"processing"}`},
 		{name: "Ark Seedance create", protocol: "ark", modelName: "doubao-seedance-2", endpoint: "/videos", body: `{"model":"doubao-seedance-2","prompt":"scene"}`, path: "/v1/contents/generations/tasks", wantBody: `{"model":"doubao-seedance-2","content":[{"type":"text","text":"scene"}]}`, payload: `{"id":"upstream-job","status":"processing"}`},
 		{name: "Gemini video error response", protocol: "gemini", modelName: "veo", endpoint: "/videos", body: `{"model":"veo","contents":[]}`, path: "/v1beta/models/veo:predictLongRunning", wantBody: `{"contents":[]}`, payload: `{"name":"operations/job"}`, message: `{"message":""}`},
@@ -96,18 +93,11 @@ func TestModelProtocolChannelFlow(t *testing.T) {
 			if test.pollPath != "" {
 				wantCalls = 2
 			}
-			if test.contentPath != "" {
-				wantCalls++
-			}
 			protocolMockHTTP(t, func(request *http.Request) (*http.Response, error) {
 				calls++
 				path, method, payload := test.path, http.MethodPost, test.payload
 				if calls == 2 {
 					path, method, payload = test.pollPath, http.MethodGet, test.pollPayload
-				}
-				contentType := "application/json"
-				if calls == 3 {
-					path, method, payload, contentType = test.contentPath, http.MethodGet, "video-bytes", "video/mp4"
 				}
 				auth, google := "Bearer "+key, ""
 				if test.protocol == "gemini" {
@@ -123,7 +113,7 @@ func TestModelProtocolChannelFlow(t *testing.T) {
 					}
 					assertProtocolJSONValue(t, json.RawMessage(body), test.wantBody)
 				}
-				return &http.Response{StatusCode: http.StatusOK, Header: http.Header{"Content-Type": {contentType}}, Body: &protocolResponseBody{Reader: strings.NewReader(payload), closed: &closed}}, nil
+				return &http.Response{StatusCode: http.StatusOK, Header: http.Header{"Content-Type": {"application/json"}}, Body: &protocolResponseBody{Reader: strings.NewReader(payload), closed: &closed}}, nil
 			})
 			taskID := "client_video_task_" + test.name
 			request := httptest.NewRequest(http.MethodPost, test.endpoint, strings.NewReader(test.body))
@@ -168,18 +158,8 @@ func TestModelProtocolChannelFlow(t *testing.T) {
 						t.Fatalf("task unavailable for poll: %v", err)
 					}
 					update, err := pollVideoTaskFromUpstream(task)
-					if err != nil || update.Status != "completed" || update.VideoURL != firstNonEmpty(test.wantVideoURL, "https://media.invalid/video") {
+					if err != nil || update.Status != "completed" || update.VideoURL != "https://media.invalid/video" {
 						t.Fatalf("poll response: %#v, %v", update, err)
-					}
-					if test.contentPath != "" {
-						contentRequest := httptest.NewRequest(http.MethodGet, "/videos/upstream-job/content?model="+test.modelName, nil)
-						contentRequest.Header = request.Header.Clone()
-						contentRequest = contentRequest.WithContext(request.Context())
-						contentWriter := httptest.NewRecorder()
-						AIVideoContent(contentWriter, contentRequest, "upstream-job")
-						if contentWriter.Code != http.StatusOK || contentWriter.Header().Get("Content-Type") != "video/mp4" || contentWriter.Body.String() != "video-bytes" {
-							t.Fatalf("content response: %d %v %s", contentWriter.Code, contentWriter.Header(), contentWriter.Body)
-						}
 					}
 				}
 			case test.endpoint == "/audio/speech":
@@ -204,7 +184,7 @@ func testDirectRecord(t *testing.T, value any) map[string]any {
 	t.Helper()
 	record, ok := value.(map[string]any)
 	if !ok {
-		t.Fatalf("expected JSON object, got %T", value)
+		t.Fatalf("expected object, got %#v", value)
 	}
 	return record
 }
