@@ -179,3 +179,12 @@ func TestModelProtocolChannelFlow(t *testing.T) {
 		})
 	}
 }
+
+func testDirectRecord(t *testing.T, value any) map[string]any {
+	t.Helper()
+	record, ok := value.(map[string]any)
+	if !ok {
+		t.Fatalf("expected object, got %#v", value)
+	}
+	return record
+}

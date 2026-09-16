@@ -2,8 +2,6 @@ package service
 
 import (
 	"bytes"
-	"crypto/hmac"
-	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -79,15 +77,4 @@ func readRequestBody(request *http.Request) ([]byte, error) {
 	if err != nil { return nil, err }
 	_ = request.Body.Close()
 	return body, nil
-}
-
-func sha256Hex(value []byte) string {
-	sum := sha256.Sum256(value)
-	return hex.EncodeToString(sum[:])
-}
-
-func hmacSHA256(key, value []byte) []byte {
-	h := hmac.New(sha256.New, key)
-	_, _ = h.Write(value)
-	return h.Sum(nil)
 }
