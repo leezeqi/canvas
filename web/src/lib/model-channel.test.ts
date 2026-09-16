@@ -19,7 +19,7 @@ test("built-in protocols retain all existing default URLs and API Key links", ()
         openai: "https://api.openai.com",
         gemini: "https://generativelanguage.googleapis.com",
         grok2api: "",
-        sub2api: "https://sub2api.dk996.top",
+        sub2api: "",
         metaso: "https://metaso.cn/api/minimax",
         ark: "https://ark.cn-beijing.volces.com/api/v3",
         jimeng: "https://visual.volcengineapi.com",
