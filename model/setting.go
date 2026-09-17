@@ -15,6 +15,7 @@ const (
 
 // ModelChannel 模型渠道配置。
 type ModelChannel struct {
+	ImageEditFormat string `json:"imageEditFormat"`
 	ID       string   `json:"id"`
 	Protocol string   `json:"protocol"`
 	Name     string   `json:"name"`
@@ -57,6 +58,7 @@ type SystemPromptSetting struct {
 }
 
 type PublicModelChannelInfo struct {
+	ImageEditFormat string `json:"imageEditFormat"`
 	ID       string   `json:"id"`
 	Protocol string   `json:"protocol"`
 	Name     string   `json:"name"`

@@ -4,7 +4,7 @@ import { isMiniMaxChannel, miniMaxModels } from "@/lib/minimax-video";
 import { dataUrlToFile } from "@/lib/image-utils";
 import { isMimoChannel, mimoModels } from "@/lib/mimo-tts";
 import { dataUrlToGeminiInlineData, geminiActionUrl, geminiDirectHeaders, geminiErrorMessage, isGeminiConfig, normalizeGeminiBaseUrl } from "@/lib/gemini";
-import { autoSyncImage, imageToDataUrl, resolveImageUrl, type UploadedImage } from "@/services/image-storage";
+import { autoSyncImage, imageToDataUrl, imageToPublicUrl, resolveImageUrl, type UploadedImage } from "@/services/image-storage";
 import { buildApiUrl, channelIdForActiveModel, channelProtocolForConfig, directAIProviderForConfig, localChannelForActiveModel, type AiConfig } from "@/stores/use-config-store";
 import { useUserStore } from "@/stores/use-user-store";
 import type { ReferenceImage } from "@/types/image";
@@ -459,7 +459,7 @@ async function parseImagesStreamResponse(response: Response, mime: string): Prom
     let resultPayload: ImageApiResponse | null = null;
     const events = await readJsonServerSentEvents(response, (event) => {
         const object = typeof event.object === "string" ? event.object : "";
-        if (object === "image.generation.result" || object === "image.edit.result") {
+        if (object === "image.generation.result" || object === "image.edit.result" || Array.isArray(event.data) && event.data.some((item) => item && typeof item === "object" && resolveImageDataUrl(item as Record<string, unknown>, mime))) {
             resultPayload = event as ImageApiResponse;
         }
         if (resolveImageDataUrl(event, mime)) {
@@ -770,6 +770,41 @@ async function requestGrokImageEditSingle(config: AiConfig, prompt: string, refe
     );
 }
 
+function usesJSONImageEdits(config: AiConfig) {
+    const channel = config.channelMode === "remote"
+        ? config.publicChannels.find((item) => item.id === channelIdForActiveModel(config)) || config.publicChannels[0]
+        : localChannelForActiveModel(config);
+    return (channel?.protocol || "openai") === "openai" && channel?.imageEditFormat === "json";
+}
+
+async function createJSONImageEditBody(config: AiConfig, prompt: string, references: ReferenceImage[], params: ImageRequestParams) {
+    return {
+        model: config.model,
+        prompt: withPromptGuard(config, withSystemPrompt(config, prompt)),
+        images: await Promise.all(references.map(async (image) => ({ image_url: await imageToPublicUrl(image) }))),
+        ...(params.size ? { size: params.size } : {}),
+        ...(params.n > 1 ? { n: params.n } : {}),
+        ...(config.streamImages ? { stream: true } : {}),
+    };
+}
+
+async function requestJSONImageEdit(config: AiConfig, prompt: string, references: ReferenceImage[], params: ImageRequestParams) {
+    const body = await createJSONImageEditBody(config, prompt, references, params);
+    return requestAndParseImages(config, "/images/edits", body, params.timeoutSeconds,
+        () => requestWithTransientRetry(() => withTimeout(params.timeoutSeconds, (signal) => fetch(aiApiUrl(config, "/images/edits"), {
+            method: "POST", headers: aiHeaders(config, "application/json"), body: JSON.stringify(body), signal,
+        }))),
+        async (response) => {
+            if (isEventStreamResponse(response)) {
+                const images = await parseImagesStreamResponse(response, IMAGE_MIME);
+                return { images, responseBody: summarizeGeneratedImages(images, "event-stream") };
+            }
+            const payload = await response.json() as ImageApiResponse;
+            return { images: parseImagePayload(payload, IMAGE_MIME), responseBody: stringifyLogPayload(payload) };
+        },
+    );
+}
+
 async function requestImageEditSingle(config: AiConfig, prompt: string, references: ReferenceImage[], params: ImageRequestParams): Promise<GeneratedImage[]> {
     if (isGeminiConfig(config)) return requestGeminiImageSingle(config, prompt, references, params);
     if (isGrok2APIImageConfig(config)) return requestGrokImageEditSingle(config, prompt, references, params);
@@ -952,8 +987,9 @@ async function requestAndParseImages(config: AiConfig, endpoint: string, request
 }
 
 async function requestImages(config: AiConfig & { seedIndex?: number; seedCount?: number }, prompt: string, references: ReferenceImage[]): Promise<GeneratedImage[]> {
-    assertImageReferencesSupported(config.model, references);
     const params = createImageRequestParams(config);
+    if (references.length && usesJSONImageEdits(config)) return requestJSONImageEdit(config, prompt, references, params);
+    assertImageReferencesSupported(config.model, references);
     const inputImageDataUrls = references.length ? await Promise.all(references.map((image) => imageToDataUrl(image))) : [];
     const useConcurrentSingleRequests = isGeminiConfig(config) || config.apiMode === "responses" || config.apiMode === "chat" || config.codexCli || config.streamImages || isZhipuImageModel(config.model);
     if (params.n > 1 && useConcurrentSingleRequests) {
@@ -1056,12 +1092,16 @@ export async function pollCanvasImageTaskStatus(taskId: string): Promise<CanvasI
 }
 
 async function createCanvasImageTaskRequest(config: AiConfig & { seedIndex?: number; seedCount?: number }, prompt: string, references: ReferenceImage[], params: ImageRequestParams, options: CanvasImageTaskOptions): Promise<RequestInit> {
-    assertImageReferencesSupported(config.model, references);
     const taskChannelId = channelIdForActiveModel(config);
     const taskChannelHeader: Record<string, string> = config.channelMode === "remote" && taskChannelId ? { "X-Model-Channel-ID": taskChannelId } : {};
     const tokenHeaders = { ...aiHeaders(config), ...taskChannelHeader };
     const jsonHeaders = { ...aiHeaders(config, "application/json"), ...taskChannelHeader };
     const meta = { nodeId: options.nodeId || "", source: options.source || "canvas", sourceId: options.sourceId || "", clientTaskId: options.clientTaskId || "", prompt, channelId: taskChannelId };
+    if (references.length && usesJSONImageEdits(config)) {
+        const body = await createJSONImageEditBody(config, prompt, references, params);
+        return { method: "POST", headers: jsonHeaders, body: JSON.stringify({ endpoint: "/images/edits", ...meta, request: body }) };
+    }
+    assertImageReferencesSupported(config.model, references);
     if (isGeminiConfig(config)) {
         const body = await createGeminiImageBody(config, prompt, references, params);
         return {

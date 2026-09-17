@@ -432,6 +432,9 @@ func isTextModelName(modelName string) bool {
 }
 
 func normalizeModelChannel(channel model.ModelChannel) model.ModelChannel {
+	if channel.ImageEditFormat != "json" {
+		channel.ImageEditFormat = "multipart"
+	}
 	if channel.Protocol == "" {
 		channel.Protocol = "openai"
 	}
@@ -935,6 +938,7 @@ func publicChannelInfos(channels []model.ModelChannel) []model.PublicModelChanne
 			continue
 		}
 		result = append(result, model.PublicModelChannelInfo{
+			ImageEditFormat: channel.ImageEditFormat,
 			ID:       channel.ID,
 			Protocol: channel.Protocol,
 			Name:     channel.Name,

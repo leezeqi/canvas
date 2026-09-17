@@ -377,6 +377,7 @@ S3/R2 与 WebDAV 共用的媒体文件索引表，不保存画布、素材列表
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
 | `protocol` | string | 协议，支持 OpenAI、Gemini、Grok2API、MiniMax、MiMo、火山方舟 |
+| `imageEditFormat` | string | OpenAI 渠道图生图格式：`multipart`（默认，文件上传）或 `json`（公网图片 URL）；随公开渠道信息下发，用户本地渠道在 `modelConfig.localChannels` 中保存同名配置 |
 | `name` | string | 渠道名称 |
 | `baseUrl` | string | 渠道接口地址 |
 | `apiKey` | string | 渠道密钥 |

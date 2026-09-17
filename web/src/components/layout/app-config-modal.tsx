@@ -15,7 +15,7 @@ import { grokTtsFormatOptions, grokTtsLanguageOptions, isGrok2APITtsConfig, norm
 import { isGeminiConfig, isGeminiTtsModel } from "@/lib/gemini";
 import { geminiTtsVoiceOptions, normalizeGeminiTtsVoice } from "@/lib/gemini-tts";
 import { isMimoPresetTtsModel, isMimoTtsModel, isMimoVoiceCloneModel, isMimoVoiceDesignModel, mimoTtsFormatOptions, mimoTtsVoiceOptions } from "@/lib/mimo-tts";
-import { CANVAS_OPENAPI_VIDEO_PROTOCOL, modelChannelApiKeyUrls, modelChannelDefaultBaseUrls, modelChannelProtocolOptions } from "@/lib/model-channel";
+import { CANVAS_OPENAPI_VIDEO_PROTOCOL, imageEditFormatOptions, modelChannelApiKeyUrls, modelChannelDefaultBaseUrls, modelChannelProtocolOptions } from "@/lib/model-channel";
 import { filterChannelModelsByCapability, normalizeLocalChannels, useConfigStore, useEffectiveConfig, type AiConfig, type LocalModelChannel, type ModelCapability } from "@/stores/use-config-store";
 import { useUserStore } from "@/stores/use-user-store";
 
@@ -356,6 +356,11 @@ export function AppConfigModal() {
                                                 ) : null}
                                             </div>
                                         </div>
+                                        {channel.protocol === "openai" ? (
+                                            <Form.Item label="图生图格式" className="!mb-0" extra={channel.imageEditFormat === "json" ? "参考图需可通过公网访问；本地图片会上传到已配置的对象存储。上游要求 SSE 时，请开启图片流式。" : undefined}>
+                                                <Select value={channel.imageEditFormat || "multipart"} options={imageEditFormatOptions} onChange={(imageEditFormat: LocalModelChannel["imageEditFormat"]) => patchLocalChannel(channel.id, { imageEditFormat })} />
+                                            </Form.Item>
+                                        ) : null}
                                         <div className="text-xs text-stone-500">已保存 {channel.models.length} 个模型</div>
                                     </div>
                                 ))}

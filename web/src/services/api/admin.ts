@@ -1,4 +1,4 @@
-import type { ModelChannelProtocol } from "@/lib/model-channel";
+import type { ImageEditFormat, ModelChannelProtocol } from "@/lib/model-channel";
 import { apiDelete, apiGet, apiPost, compactApiParams } from "@/services/api/request";
 import type { Prompt, PromptListResponse } from "@/services/api/prompts";
 import type { AgentSkill, AgentSkillFile } from "@/services/api/agent-skills";
@@ -182,6 +182,7 @@ export async function deleteAdminAsset(token: string, id: string) {
 export type AdminModelChannel = {
     id: string;
     protocol: ModelChannelProtocol;
+    imageEditFormat?: ImageEditFormat;
     name: string;
     baseUrl: string;
     apiKey: string;
@@ -220,6 +221,7 @@ export type AdminModelCost = {
 export type AdminPublicModelChannelInfo = {
     id: string;
     protocol: AdminModelChannel["protocol"];
+    imageEditFormat?: ImageEditFormat;
     name: string;
     baseUrl: string;
     models: string[];

@@ -13,6 +13,11 @@ export const modelChannelProtocols = [
 ] as const;
 
 export type ModelChannelProtocol = (typeof modelChannelProtocols)[number]["value"];
+export type ImageEditFormat = "multipart" | "json";
+export const imageEditFormatOptions = [
+    { value: "multipart", label: "文件上传（默认）" },
+    { value: "json", label: "公网图片 URL（JSON）" },
+];
 export type DirectAIProvider = Extract<(typeof modelChannelProtocols)[number], { directRequestPlan: true }>["value"];
 const hiddenModelChannelProtocols: ReadonlySet<string> = new Set(["metaso"]);
 export const modelChannelProtocolOptions = modelChannelProtocols.filter(({ value }) => !hiddenModelChannelProtocols.has(value)).map(({ value, label }) => ({ label, value }));

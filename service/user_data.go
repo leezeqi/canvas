@@ -43,6 +43,7 @@ type userModelConfigInput struct {
 }
 
 type userLocalModelChannelInput struct {
+	ImageEditFormat string `json:"imageEditFormat"`
 	ID       string   `json:"id"`
 	Protocol string   `json:"protocol"`
 	Name     string   `json:"name"`
@@ -93,6 +94,7 @@ func SelectUserLocalModelChannelForModel(userID string, modelName string, channe
 			protocol = "openai"
 		}
 		return model.ModelChannel{
+			ImageEditFormat: channel.ImageEditFormat,
 			ID:       channelID,
 			Protocol: protocol,
 			Name:     firstVideoTaskValue(strings.TrimSpace(channel.Name), "本地直连"),

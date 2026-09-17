@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-import { directAIProviderForProtocol, isVideoOnlyChannelProtocol, type DirectAIProvider, type ModelChannelProtocol } from "@/lib/model-channel";
+import { directAIProviderForProtocol, isVideoOnlyChannelProtocol, type DirectAIProvider, type ImageEditFormat, type ModelChannelProtocol } from "@/lib/model-channel";
 import { apiGet } from "@/services/api/request";
 import type { AdminPublicSettings } from "@/services/api/admin";
 import { useUserStore } from "@/stores/use-user-store";
@@ -12,6 +12,7 @@ import { useUserStore } from "@/stores/use-user-store";
 export type LocalModelChannel = {
     id: string;
     protocol: ModelChannelProtocol;
+    imageEditFormat?: ImageEditFormat;
     name: string;
     baseUrl: string;
     apiKey: string;
@@ -73,7 +74,7 @@ export type AiConfig = {
         workflowAgent: string;
     };
     localChannels: LocalModelChannel[];
-    publicChannels: Array<{ id?: string; protocol?: LocalModelChannel["protocol"]; name?: string; baseUrl?: string; models?: string[]; weight?: number; timeout?: number; enabled?: boolean; remark?: string }>;
+    publicChannels: Array<{ id?: string; protocol?: LocalModelChannel["protocol"]; imageEditFormat?: ImageEditFormat; name?: string; baseUrl?: string; models?: string[]; weight?: number; timeout?: number; enabled?: boolean; remark?: string }>;
     syncStorageConfig: boolean;
     syncWebDAVStorageConfig: boolean;
     activeChannelId: string;
@@ -490,6 +491,7 @@ export function normalizeLocalChannels(config: Partial<AiConfig>): LocalModelCha
     const normalized: LocalModelChannel[] = channels.map((channel, index) => ({
         id: channel.id || `local-${index + 1}`,
         protocol: channel.protocol || "openai",
+        imageEditFormat: channel.imageEditFormat === "json" ? "json" : "multipart",
         name: typeof channel.name === "string" ? channel.name : `本地渠道 ${index + 1}`,
         baseUrl: channel.baseUrl || "",
         apiKey: channel.apiKey || "",

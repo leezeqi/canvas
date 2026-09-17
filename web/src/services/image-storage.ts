@@ -355,6 +355,37 @@ export async function setImageBlob(storageKey: string, blob: Blob) {
     return url;
 }
 
+function publicImageUrl(value?: string) {
+    if (!value) return "";
+    try {
+        const url = new URL(value);
+        return ["http:", "https:"].includes(url.protocol) && !url.username && !url.password && !isLocalNetworkHost(url.hostname) ? url.href : "";
+    } catch {
+        return "";
+    }
+}
+
+export async function imageToPublicUrl(image: { url?: string; dataUrl?: string; storageKey?: string }) {
+    const existing = publicImageUrl(image.url) || publicImageUrl(image.dataUrl);
+    if (existing) return existing;
+    if (image.storageKey?.startsWith("server:") && !image.storageKey.startsWith("server:webdav:")) {
+        const cachedUrl = publicImageUrl(serverUrls.get(image.storageKey.slice("server:".length)));
+        if (cachedUrl) return cachedUrl;
+        const { getStorageObjectInfo } = await import("@/services/api/storage");
+        const info = await getStorageObjectInfo(image.storageKey.slice("server:".length)).catch(() => null);
+        const storedUrl = publicImageUrl(info?.publicUrl);
+        if (storedUrl) return storedUrl;
+    }
+    try {
+        const uploaded = await uploadRemoteImageToServer(await imageToDataUrl(image), "reference-" + nanoid());
+        const url = publicImageUrl(uploaded.url) || publicImageUrl(serverUrls.get(uploaded.storageKey.slice("server:".length)));
+        if (url) return url;
+        throw new Error("对象存储未返回公网图片直链");
+    } catch (error) {
+        throw new Error(`图生图需要公网图片地址，请配置可公开读取的对象存储：${error instanceof Error ? error.message : "参考图上传失败"}`);
+    }
+}
+
 export async function imageToDataUrl(image: { url?: string; dataUrl?: string; storageKey?: string }) {
     const serverObjectId = image.storageKey?.startsWith("server:") ? image.storageKey.slice("server:".length) : "";
     const directGuestObject = image.storageKey?.startsWith("server:webdav:");
