@@ -20,7 +20,7 @@ func TestModelProtocolProxyPathContract(t *testing.T) {
 		{"cog video", "openai", "", " COGVIDEOX-3 ", "/videos", "/videos/generations"},
 		{"grok2api 1.5 before ark URL", " GROK2API ", "https://api.example/api/plan/v3", " GROK-IMAGINE-VIDEO-1.5 ", "/videos", "/videos/generations"},
 		{"sub2api create", "sub2api", "", "grok-imagine-video", "/videos", "/videos"},
-		{"sub2api content", "sub2api", "", "grok-imagine-video-1.5", "/videos/task_xxx/content", "/videos/generations/task_xxx/content"},
+		{"sub2api content", "sub2api", "", "grok-imagine-video-1.5", "/videos/task_xxx/content", "/videos/task_xxx/content"},
 		{"grok2api content unchanged", "grok2api", "", "grok-imagine-video-1.5", "/videos/task_xxx/content", "/videos/task_xxx/content"},
 		{"openai seedance unchanged", "openai", "", "doubao-seedance-2", "/videos", "/videos"},
 		{"openai plan URL unchanged", "openai", "https://api.example/API/PLAN/V3", "deployment-id", "/videos", "/videos"},

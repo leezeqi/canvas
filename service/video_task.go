@@ -11,7 +11,7 @@ import (
 	"github.com/google/uuid"
 )
 
-const videoTaskPollInterval = 5 * time.Second
+const videoTaskPollInterval = 6 * time.Second
 const videoTaskFinishedRetention = 10 * time.Minute
 const videoTaskCleanupInterval = 10 * time.Minute
 
@@ -50,14 +50,19 @@ type VideoTaskCreateInput struct {
 }
 
 type VideoTaskPollUpdate struct {
-	Status       string
-	Progress     int
-	Seconds      string
-	Size         string
-	VideoURL     string
-	Error        string
-	ErrorDetail  string
-	ResponseBody string
+	Status           string
+	Progress         int
+	Seconds          string
+	Size             string
+	VideoURL         string
+	Error            string
+	ErrorDetail      string
+	ResponseBody     string
+	NextPollAt      string
+	Poll404Count    int
+	PollRetryCount  int
+	PollStateChanged bool
+	ResetPollState   bool
 }
 
 type VideoTaskPollFunc func(model.VideoTask) (VideoTaskPollUpdate, error)
@@ -227,6 +232,9 @@ func runVideoTaskPoller() {
 				lastCleanupAt = current
 			}
 			for _, task := range tasks {
+				if nextPollAt, err := time.Parse(time.RFC3339Nano, task.NextPollAt); err == nil && current.Before(nextPollAt) {
+					continue
+				}
 				if _, loaded := inFlight.LoadOrStore(task.ID, true); loaded {
 					continue
 				}
@@ -277,6 +285,17 @@ func UpdateVideoTaskFromPoll(task model.VideoTask, update VideoTaskPollUpdate) e
 	}
 	if strings.TrimSpace(update.VideoURL) != "" {
 		task.VideoURL = strings.TrimSpace(update.VideoURL)
+	}
+	if update.ResetPollState {
+		task.NextPollAt = ""
+		task.Poll404Count = 0
+		task.PollRetryCount = 0
+		task.Error = ""
+		task.ErrorDetail = ""
+	} else if update.PollStateChanged {
+		task.NextPollAt = update.NextPollAt
+		task.Poll404Count = update.Poll404Count
+		task.PollRetryCount = update.PollRetryCount
 	}
 	if strings.TrimSpace(update.Error) != "" {
 		task.Error = strings.TrimSpace(update.Error)

@@ -314,7 +314,7 @@ func pollVideoTaskFromUpstream(task model.VideoTask) (service.VideoTaskPollUpdat
 		UserDisplayName: task.UserDisplayName,
 		RequestBody:     fmt.Sprintf(`{"taskId":%q}`, pollID),
 	}
-	payload, status, err := doAIRequest(request, channel)
+	payload, status, responseHeaders, err := doAIRequestWithHeaders(request, channel)
 	if err != nil {
 		saveAIProxyLog(logContext, 0, "", err.Error())
 		return service.VideoTaskPollUpdate{}, err
@@ -322,6 +322,9 @@ func pollVideoTaskFromUpstream(task model.VideoTask) (service.VideoTaskPollUpdat
 	if status >= http.StatusBadRequest {
 		message := readUpstreamAIErrorMessage(payload, status)
 		saveAIProxyLog(logContext, status, string(payload), strings.TrimSpace(string(payload)))
+		if update, handled := sub2APIVideoPollError(task, channel, status, responseHeaders.Get("Retry-After"), time.Now(), message, string(payload)); handled {
+			return update, nil
+		}
 		if status == http.StatusTooManyRequests {
 			return service.VideoTaskPollUpdate{Status: task.Status, ErrorDetail: message, ResponseBody: string(payload)}, nil
 		}
@@ -346,14 +349,15 @@ func pollVideoTaskFromUpstream(task model.VideoTask) (service.VideoTaskPollUpdat
 	}
 	saveAIProxyLog(logContext, status, string(transformed), firstNonEmpty(parsed.Error, ""))
 	return service.VideoTaskPollUpdate{
-		Status:       parsed.Status,
-		Progress:     parsed.Progress,
-		Seconds:      parsed.Seconds,
-		Size:         parsed.Size,
-		VideoURL:     parsed.VideoURL,
-		Error:        parsed.Error,
-		ErrorDetail:  parsed.ErrorDetail,
-		ResponseBody: string(transformed),
+		Status:         parsed.Status,
+		Progress:       parsed.Progress,
+		Seconds:        parsed.Seconds,
+		Size:           parsed.Size,
+		VideoURL:       parsed.VideoURL,
+		Error:          parsed.Error,
+		ErrorDetail:    parsed.ErrorDetail,
+		ResponseBody:   string(transformed),
+		ResetPollState: strings.EqualFold(strings.TrimSpace(channel.Protocol), service.ModelChannelProtocolSub2API),
 	}, nil
 }
 
@@ -366,13 +370,18 @@ func normalizeVideoCreateBody(body []byte, contentType string, modelName string,
 }
 
 func doAIRequest(request *http.Request, channel model.ModelChannel) ([]byte, int, error) {
+	payload, status, _, err := doAIRequestWithHeaders(request, channel)
+	return payload, status, err
+}
+
+func doAIRequestWithHeaders(request *http.Request, channel model.ModelChannel) ([]byte, int, http.Header, error) {
 	response, err := service.HTTPClientForChannel(channel).Do(request)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, nil, err
 	}
 	defer response.Body.Close()
 	payload, _ := io.ReadAll(io.LimitReader(response.Body, 1024*1024))
-	return payload, response.StatusCode, nil
+	return payload, response.StatusCode, response.Header.Clone(), nil
 }
 
 func transformVideoCreatePayload(payload []byte, request *http.Request, channel model.ModelChannel, modelName string) []byte {

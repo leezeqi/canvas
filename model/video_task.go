@@ -28,4 +28,7 @@ type VideoTask struct {
 	StartedAt       string `json:"startedAt"`
 	CompletedAt     string `json:"completedAt"`
 	LastPolledAt    string `json:"lastPolledAt" gorm:"index"`
+	NextPollAt      string `json:"nextPollAt" gorm:"index"`
+	Poll404Count    int    `json:"poll404Count"`
+	PollRetryCount  int    `json:"pollRetryCount"`
 }

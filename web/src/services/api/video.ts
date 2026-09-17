@@ -8,7 +8,7 @@ import { boolConfig, isSeedanceVideoConfig, normalizeSeedanceDuration, normalize
 import { isAgnesVideoV25Model, isCogVideoX3Model, modelKey, normalizeCogVideoX3Duration, supportsVideoAudioGeneration } from "@/lib/video-model-capabilities";
 import { CANVAS_OPENAPI_VIDEO_PROTOCOL } from "@/lib/model-channel";
 import { resolveMediaUrl, uploadMediaFile, uploadRemoteMediaToServer } from "@/services/file-storage";
-import { autoSyncToCloud, imageToDataUrl, resolveImageUrl } from "@/services/image-storage";
+import { autoSyncToCloud, imageToDataUrl, imageToPublicUrl, resolveImageUrl } from "@/services/image-storage";
 import { buildApiUrl, channelIdForActiveModel, channelProtocolForConfig, directAIProviderForConfig, localChannelForActiveModel, type AiConfig } from "@/stores/use-config-store";
 import { useUserStore } from "@/stores/use-user-store";
 import type { ReferenceImage } from "@/types/image";
@@ -21,7 +21,7 @@ export type VideoGenerationResult = { id: string; url: string; durationMs: numbe
 export type CreatedVideoGenerationTask = { task: VideoResponse; pollId: string; startedAt: number; requestBody: unknown };
 export type VideoProgressHandler = (progress: number, task: VideoResponse) => void;
 export type VideoTaskCreateOptions = { clientTaskId?: string; source?: "video-workbench" | "canvas"; sourceId?: string };
-export const VIDEO_POLL_INTERVAL_MS = 5000;
+export const VIDEO_POLL_INTERVAL_MS = 6000;
 
 export class VideoRequestError extends Error {
     detail?: string;
@@ -157,7 +157,8 @@ export async function pollCreatedVideoGenerationTask(config: AiConfig, task: Vid
     try {
         if (initialDelayMs > 0) await new Promise((resolve) => setTimeout(resolve, initialDelayMs));
         for (; ;) {
-            const video = await cacheProtectedVideo(config, model, await cacheProtectedGeminiVideo(config, model, await pollOnce()));
+            const polled = await pollSub2APIDirectWithRetry(config, model, pollOnce);
+            const video = await cacheProtectedVideo(config, model, await cacheProtectedGeminiVideo(config, model, polled));
             onPoll?.(video);
             if (isFailedVideoStatus(video.status)) throw new VideoRequestError(video.error?.message || "视频生成失败", video);
             if (typeof video.progress === "number") onProgress?.(video.progress, video);
@@ -185,9 +186,10 @@ export async function pollVideoGenerationTaskStatus(config: AiConfig, task: Vide
     const pollId = videoPollId(model, task);
     if (!pollId) throw new VideoRequestError("视频接口没有返回任务 ID", task);
     const directProvider = !usesAccountProxy(config) ? directAIProviderForConfig(config) : null;
-    const result = directProvider
-        ? await (await import("@/services/api/direct-ai")).pollDirectVideoTask(config, directProvider, pollId)
-        : unwrapVideoResponseForConfig(config, model, (await axios.get<ApiVideoResponse>(aiVideoPollUrl(config, model, pollId), { headers: aiHeaders(config), params: usesAccountProxy(config) ? { model } : undefined })).data);
+    const pollOnce = directProvider
+        ? () => import("@/services/api/direct-ai").then(({ pollDirectVideoTask }) => pollDirectVideoTask(config, directProvider, pollId))
+        : async () => unwrapVideoResponseForConfig(config, model, (await axios.get<ApiVideoResponse>(aiVideoPollUrl(config, model, pollId), { headers: aiHeaders(config), params: usesAccountProxy(config) ? { model } : undefined })).data);
+    const result = await pollSub2APIDirectWithRetry(config, model, pollOnce);
     return syncGeneratedVideo(await cacheProtectedGeminiVideo(config, model, await cacheProtectedVideo(config, model, result)), config, true);
 }
 
@@ -231,11 +233,11 @@ function isGrok2APIVideoConfig(config: AiConfig, model: string) {
 async function cacheProtectedVideo(config: AiConfig, model: string, task: VideoResponse) {
     const url = task.video_url || task.url || "";
     const needsGrokContent = isGrok2APIVideoConfig(config, model) && /\/v1\/videos\/[^/]+\/content(?:[?#]|$)/.test(url);
-    const needsSub2APIContent = videoChannelProtocol(config, model) === "sub2api" && /\/v1\/videos\/generations\/[^/]+\/content(?:[?#]|$)/.test(url);
+    const needsSub2APIContent = videoChannelProtocol(config, model) === "sub2api" && /\/v1\/videos\/(?:generations\/)?[^/]+\/content(?:[?#]|$)/.test(url) && (usesAccountProxy(config) || sameURLOrigin(url, aiApiUrl(config, "")));
     if (!isCompletedVideoStatus(task.status) || task.storageKey || (!needsGrokContent && !needsSub2APIContent)) return task;
     const taskId = task.task_id || task.id || task.video_id || "";
-    const path = `/videos/${needsSub2APIContent && !usesAccountProxy(config) ? "generations/" : ""}${encodeURIComponent(taskId)}/content`;
-    const response = await fetch(`${aiApiUrl(config, path)}?model=${encodeURIComponent(model)}`, { headers: aiHeaders(config) });
+    const contentUrl = needsSub2APIContent && !usesAccountProxy(config) ? url : aiApiUrl(config, `/videos/${encodeURIComponent(taskId)}/content`);
+    const response = await fetch(`${contentUrl}${contentUrl.includes("?") ? "&" : "?"}model=${encodeURIComponent(model)}`, { headers: aiHeaders(config) });
     if (!response.ok) throw new VideoRequestError(`视频内容下载失败：${response.status}`, task);
     const media = await uploadMediaFile(await response.blob(), "generated-video", `video-content:${videoSyncKey(config, task)}`);
     return { ...task, url: media.url, video_url: media.url, storageKey: media.storageKey };
@@ -260,19 +262,79 @@ async function createGrok2APIVideoRequestBody(config: AiConfig, model: string, p
 
 async function createSub2APIVideoRequestBody(config: AiConfig, model: string, prompt: string, input: Required<VideoReferenceInput>) {
     if (!["grok-imagine-video", "grok-imagine-video-1.5"].includes(model)) throw new VideoRequestError("Sub2API 渠道当前仅支持 Grok 视频模型");
-    if (input.firstFrame || input.lastFrame || input.videoReferences.length || input.audioReferences.length) throw new VideoRequestError("Sub2API Grok 视频仅支持普通单图参考，不支持首尾帧、参考视频或参考音频");
-    if (input.references.length > 1 || (input.references.length && model !== "grok-imagine-video-1.5")) throw new VideoRequestError("Sub2API 图生视频需要 grok-imagine-video-1.5，且只能使用一张参考图");
+    if (input.firstFrame || input.lastFrame || input.videoReferences.length || input.audioReferences.length) throw new VideoRequestError("Sub2API Grok 视频不支持首尾帧、参考视频或参考音频");
+    const maxImages = model === "grok-imagine-video-1.5" ? 1 : 7;
+    if (input.references.length > maxImages) throw new VideoRequestError(`Sub2API ${model} 最多支持 ${maxImages} 张参考图`);
     const seconds = Number(config.videoSeconds || "5");
     const resolution = normalizeVideoResolution(config.vquality);
     const ratio = normalizeSeedanceRatio(config.size);
     const aspectRatio = ratio === "adaptive" ? "16:9" : ratio;
     if (!Number.isInteger(seconds) || seconds < 1) throw new VideoRequestError("Sub2API Grok 视频时长必须为正整数秒");
+    if (model === "grok-imagine-video-1.5" && seconds > 15) throw new VideoRequestError("Sub2API grok-imagine-video-1.5 视频时长不能超过 15 秒");
     if (!["480p", "720p", "1080p"].includes(resolution)) throw new VideoRequestError("Sub2API Grok 视频仅支持 480p、720p、1080p");
     if (!["16:9", "9:16", "1:1"].includes(aspectRatio)) throw new VideoRequestError("Sub2API Grok 视频仅支持 16:9、9:16、1:1 比例");
+    const images = await Promise.all(input.references.map(async (reference) => {
+        try {
+            return await imageToPublicUrl(reference);
+        } catch (error) {
+            throw new VideoRequestError(`Sub2API Grok 视频参考图必须使用公网图片地址：${error instanceof Error ? error.message : "参考图上传失败"}`);
+        }
+    }));
     return {
-        model, prompt, seconds, resolution, aspect_ratio: aspectRatio,
-        ...(input.references.length ? { image: await imageToDataUrl(input.references[0]) } : {}),
+        model, prompt, seconds: String(seconds), duration: seconds, resolution, aspect_ratio: aspectRatio, ratio: aspectRatio,
+        ...(images.length ? { images } : {}),
     };
+}
+
+function sameURLOrigin(left: string, right: string) {
+    try {
+        return new URL(left).origin === new URL(right).origin;
+    } catch {
+        return false;
+    }
+}
+
+async function pollSub2APIDirectWithRetry(config: AiConfig, model: string, pollOnce: () => Promise<VideoResponse>) {
+    if (usesAccountProxy(config) || videoChannelProtocol(config, model) !== "sub2api") return pollOnce();
+    let consecutive404 = 0;
+    let transientRetries = 0;
+    for (; ;) {
+        try {
+            return await pollOnce();
+        } catch (error) {
+            const status = axios.isAxiosError(error) ? error.response?.status || 0 : 0;
+            let delay = VIDEO_POLL_INTERVAL_MS;
+            if (status === 404) {
+                consecutive404++;
+                transientRetries = 0;
+                if (consecutive404 >= 5) throw error;
+            } else if (status === 429) {
+                consecutive404 = 0;
+                transientRetries++;
+                if (transientRetries > 5) throw error;
+                delay = Math.max(delay, sub2APIRetryAfterMs(error.response?.headers, transientRetries));
+            } else if (status >= 500) {
+                consecutive404 = 0;
+                transientRetries++;
+                if (transientRetries > 3) throw error;
+                delay = Math.max(delay, 2 ** Math.min(transientRetries, 4) * 1000);
+            } else {
+                throw error;
+            }
+            await new Promise((resolve) => setTimeout(resolve, delay));
+        }
+    }
+}
+
+function sub2APIRetryAfterMs(headers: unknown, attempt: number) {
+    const record = headers as { get?: (name: string) => unknown; [key: string]: unknown } | undefined;
+    const raw = record?.get?.("retry-after") ?? record?.["retry-after"] ?? record?.["Retry-After"];
+    const value = String(raw || "").trim();
+    const seconds = Number(value);
+    if (value && Number.isFinite(seconds) && seconds >= 0) return seconds * 1000;
+    const deadline = Date.parse(value);
+    if (Number.isFinite(deadline)) return Math.max(0, deadline - Date.now());
+    return 2 ** Math.min(attempt, 4) * 1000;
 }
 
 async function createAgnesVideoV25RequestBody(config: AiConfig, model: string, prompt: string, input: Required<VideoReferenceInput>) {
