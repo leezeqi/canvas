@@ -73,6 +73,14 @@ export async function syncUserAssetData<T>(token: string, data: T) {
     return apiPost<T>("/api/v1/user-data/assets", { data }, token);
 }
 
+export async function fetchUserAgentSessions<T>(token: string) {
+    return apiGet<T>("/api/v1/user-data/agent-sessions", undefined, token);
+}
+
+export async function syncUserAgentSessions<T>(token: string, data: T) {
+    return apiPost<T>("/api/v1/user-data/agent-sessions", { data }, token);
+}
+
 export type CreativeWorkflowRecord<T = unknown> = {
     id: string;
     ownerUserId?: string;

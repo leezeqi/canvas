@@ -117,3 +117,28 @@ func SaveUserAssetData(w http.ResponseWriter, r *http.Request) {
 	}
 	OK(w, json.RawMessage(data))
 }
+
+func UserAgentSessions(w http.ResponseWriter, r *http.Request) {
+	data, err := service.CurrentUserAgentSessions(r.Context())
+	if err != nil {
+		FailError(w, err)
+		return
+	}
+	OK(w, json.RawMessage(data))
+}
+
+func SaveUserAgentSessions(w http.ResponseWriter, r *http.Request) {
+	var request struct {
+		Data json.RawMessage `json:"data"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil || len(request.Data) == 0 {
+		Fail(w, "数据内容不能为空")
+		return
+	}
+	data, err := service.SaveCurrentUserAgentSessions(r.Context(), request.Data)
+	if err != nil {
+		FailError(w, err)
+		return
+	}
+	OK(w, json.RawMessage(data))
+}

@@ -280,6 +280,27 @@ func SaveCurrentUserAssetData(ctx context.Context, raw json.RawMessage) (json.Ra
 	return json.RawMessage(config.AssetData), nil
 }
 
+func CurrentUserAgentSessions(ctx context.Context) (json.RawMessage, error) {
+	config, err := currentUserConfig(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(config.AgentSessions) == "" {
+		return json.RawMessage(`{"sessions":[]}`), nil
+	}
+	return json.RawMessage(config.AgentSessions), nil
+}
+
+func SaveCurrentUserAgentSessions(ctx context.Context, raw json.RawMessage) (json.RawMessage, error) {
+	config, err := saveCurrentUserConfigField(ctx, func(config *model.UserConfig) {
+		config.AgentSessions = string(raw)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return json.RawMessage(config.AgentSessions), nil
+}
+
 func currentUserConfig(ctx context.Context) (model.UserConfig, error) {
 	user, ok := UserFromContext(ctx)
 	if !ok || user.ID == "" {

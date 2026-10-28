@@ -120,6 +120,8 @@ func New() *gin.Engine {
 	})
 	v1.GET("/user-data/assets", gin.WrapF(handler.UserAssetData))
 	v1.POST("/user-data/assets", gin.WrapF(handler.SaveUserAssetData))
+	v1.GET("/user-data/agent-sessions", gin.WrapF(handler.UserAgentSessions))
+	v1.POST("/user-data/agent-sessions", gin.WrapF(handler.SaveUserAgentSessions))
 	api.GET("/proxy-image", gin.WrapF(handler.ProxyImage))
 	api.GET("/prompts", middleware.OptionalAuth, gin.WrapF(handler.Prompts))
 	api.GET("/agent-skills", gin.WrapF(handler.AgentSkills))

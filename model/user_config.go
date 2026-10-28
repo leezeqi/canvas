@@ -7,6 +7,7 @@ type UserConfig struct {
 	StorageProvider string `json:"storageProvider" gorm:"type:text"`
 	ImageHistory    string `json:"imageHistory" gorm:"type:text"`
 	AssetData       string `json:"assetData" gorm:"type:text"`
+	AgentSessions   string `json:"agentSessions" gorm:"type:text"`
 	CreatedAt       string `json:"createdAt"`
 	UpdatedAt       string `json:"updatedAt"`
 }

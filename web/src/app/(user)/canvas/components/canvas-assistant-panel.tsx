@@ -780,11 +780,11 @@ function AssistantPanelCard({ title, children, actions }: { title: string; child
     </section>;
 }
 
-const ASSISTANT_MARKDOWN_COMPONENTS: Components = {
+export const ASSISTANT_MARKDOWN_COMPONENTS: Components = {
     a: ({ node: _node, ...props }) => <a {...props} target="_blank" rel="noreferrer" className="font-medium underline underline-offset-4" />,
 };
 
-function AssistantMarkdown({ children, components }: { children: string; components: Components }) {
+export function AssistantMarkdown({ children, components }: { children: string; components: Components }) {
     const theme = canvasThemes[useThemeStore((state) => state.theme)];
 
     return (

@@ -1,36 +1,36 @@
-import { FileText, ImagePlus, Images, Maximize2, Music2, Video } from "lucide-react";
+import type { ComponentType } from "react";
+import { Bot, Library, Maximize2, WandSparkles } from "lucide-react";
 
-export const navigationTools = [
-    {
-        slug: "canvas",
-        label: "我的画布",
-        icon: Maximize2,
-    },
-    {
-        slug: "image",
-        label: "生图工作台",
-        icon: ImagePlus,
-    },
-    {
-        slug: "video",
-        label: "视频创作台",
-        icon: Video,
-    },
-    {
-        slug: "music",
-        label: "音乐创作台",
-        icon: Music2,
-    },
-    {
-        slug: "prompts",
-        label: "提示词库",
-        icon: FileText,
-    },
-    {
-        slug: "assets",
-        label: "我的素材",
-        icon: Images,
-    },
-] as const;
+export type NavigationTool = { slug: string; label: string; icon: ComponentType<{ className?: string }>; href: string; tabs: Array<{ href: string; label: string }> };
 
-export type NavigationToolSlug = (typeof navigationTools)[number]["slug"];
+export const navigationTools: NavigationTool[] = [
+    { slug: "agent", label: "Agent", icon: Bot, href: "/", tabs: [] },
+    { slug: "canvas", label: "我的画布", icon: Maximize2, href: "/canvas", tabs: [] },
+    {
+        slug: "create",
+        label: "创作工具",
+        icon: WandSparkles,
+        href: "/image",
+        tabs: [
+            { href: "/image", label: "生图" },
+            { href: "/video", label: "视频" },
+            { href: "/workflows", label: "工作流" },
+        ],
+    },
+    {
+        slug: "library",
+        label: "知识库",
+        icon: Library,
+        href: "/prompts",
+        tabs: [
+            { href: "/prompts", label: "提示词库" },
+            { href: "/assets", label: "我的素材" },
+            { href: "/asset-library", label: "素材库" },
+        ],
+    },
+];
+
+export function findNavigationTool(pathname: string) {
+    if (pathname === "/") return navigationTools[0];
+    return navigationTools.find((tool) => tool.href !== "/" && [tool.href, ...tool.tabs.map((tab) => tab.href)].some((href) => pathname === href || pathname.startsWith(`${href}/`)));
+}

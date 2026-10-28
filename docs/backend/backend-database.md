@@ -76,6 +76,7 @@ description: 当前后端主要数据表与字段说明
 | `storage_provider` | text | 用户存储配置 JSON，内部结构为 `{ "s3": {...}, "webdav": {...} }`，两类配置可保留但不能同时启用 |
 | `image_history` | text | 用户图片历史同步数据 |
 | `asset_data` | text | 用户素材同步数据 |
+| `agent_sessions` | text | Agent 对话页会话同步数据 JSON `{ "sessions": [...] }`，只含会话标题、可见消息、执行轨迹和媒体链接，不含模型协议上下文 |
 | `created_at` | string | 创建时间 |
 | `updated_at` | string | 更新时间 |
 
