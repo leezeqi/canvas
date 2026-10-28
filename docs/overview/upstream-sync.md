@@ -123,4 +123,5 @@ git reset --hard backup/canvas-before-upstream-<上游版本>-<日期>
 - 保留的二改：Sub2API Grok 视频（含轮询退避与内容下载）、Canvas OpenAPI 视频渠道、即梦和 MiniMax 海螺渠道、OpenAI 渠道图生图 JSON 格式、Seedream 图生图修复、APIMart/88API/KIE/AutoDL 删除、极光玻璃视觉、第三方平台屏蔽。
 - 吸收的上游功能：RunningHub/ComfyUI 工作流渠道、ComfyUI Bridge、渠道自定传参转译、模型分类、停止生成与重试、节点再生成方式、局部重绘、批量下载、TokenDance 渠道等。
 - 适配：上游把 MiniMax 协议 ID 从 `metaso` 改为 `minimax`，本地代码和测试同步改名，已保存的 `metaso` 渠道不再被识别为 MiniMax（项目未上线，不做旧数据兼容）；TokenDance 依赖的视频错误钩子、直连轮询地址、创建即返回图片地址和 URL 收集函数已补回；TokenDance 和 MiniMax 按第三方平台屏蔽规则在协议下拉中隐藏；`sub2api_video.go` 适配 `SelectModelChannelForModel` 新签名。
+- 同步后追加：删除上游写死的站点公告横幅 `web/src/components/layout/announcement-banner.tsx`（TokenDance 推广、RunningHub 公告、上游微信群链接）及顶部导航和 404 页的引用；以后同步遇到该文件的修改，按 modify/delete 冲突保持删除。
 - 本次在本机未执行 `go test`、前端构建或依赖安装（本机无 Go，`web` 未安装依赖），仅做了冲突标记、import 路径和已删除符号的静态扫描。

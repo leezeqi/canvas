@@ -7,7 +7,6 @@ import { useState } from "react";
 
 import { navigationTools, type NavigationToolSlug } from "@/constant/navigation-tools";
 import { AppConfigModal } from "@/components/layout/app-config-modal";
-import { AnnouncementBanner } from "@/components/layout/announcement-banner";
 import { MobileNavDrawer } from "@/components/layout/mobile-nav-drawer";
 import { UserStatusActions } from "@/components/layout/user-status-actions";
 import { cn } from "@/lib/utils";
@@ -22,7 +21,6 @@ export function AppTopNav() {
 
     return (
         <>
-            {!hideHeader && <AnnouncementBanner />}
             {!hideHeader ? (
                 <header className="relative sticky top-0 z-40 flex h-14 w-full shrink-0 items-center justify-between border-b border-border/40 bg-background/80 px-4 backdrop-blur-xl sm:px-6 md:px-8">
                     {/* Left: Brand Logo & Title */}
