@@ -1,13 +1,14 @@
 import { nanoid } from "nanoid";
 
 import { createCanvasAudioTask, pollCanvasAudioTaskStatus } from "@/services/api/audio";
-import { CANVAS_AGENT_JSON_FALLBACK_SIGNAL, requestCanvasAgentTurn } from "@/services/api/canvas-agent";
+import { CANVAS_AGENT_JSON_FALLBACK_SIGNAL, canvasAgentTokenCalibrationKey, isCanvasAgentContextLimitError, requestCanvasAgentCheckpoint, requestCanvasAgentTurn } from "@/services/api/canvas-agent";
 import { createCanvasImageTask, pollCanvasImageTaskStatus } from "@/services/api/image";
 import { createVideoGenerationTask, pollCreatedVideoGenerationTask } from "@/services/api/video";
 import { imageToDataUrl, uploadImage } from "@/services/image-storage";
 import type { AgentChatMedia, AgentChatMediaKind, AgentChatStatus } from "@/stores/use-agent-chat-store";
 import { defaultConfig, useConfigStore, type AiConfig } from "@/stores/use-config-store";
 import type { ReferenceImage } from "@/types/image";
+import { compactCanvasAgentHistory, estimateCanvasAgentInputTokens, MAX_AGENT_INPUT_TOKENS, serializeCanvasAgentMessagesForCheckpoint } from "./canvas/agent/canvas-agent-memory";
 import { CANVAS_AGENT_TOOLS, normalizeCanvasAgentAction, parseCanvasAgentJson, type CanvasAgentAction, type CanvasAgentToolDefinition, type CanvasAgentToolResult } from "./canvas/agent/canvas-agent-tools";
 import type { CanvasAgentContent, CanvasAgentProtocolMessage, CanvasAgentToolMode } from "./canvas/types";
 
@@ -18,12 +19,13 @@ export type RunAgentChatInput = {
     config: AiConfig;
     mediaConfig: AiConfig;
     protocolMessages: CanvasAgentProtocolMessage[];
+    contextCheckpoint?: string;
     userText: string;
     sources: AgentMediaSource[];
     turnSourceIds: string[];
     skillPrompt?: string;
     signal: AbortSignal;
-    onStep: (step: { id: string; label: string; status: AgentChatStatus }) => void;
+    onStep: (step: { id: string; label: string; status: AgentChatStatus; note?: boolean }) => void;
     onMedia: (media: AgentChatMedia) => void;
 };
 
@@ -52,13 +54,40 @@ export async function runAgentChat(input: RunAgentChatInput) {
     let toolMode: CanvasAgentToolMode = "native";
     let messages: CanvasAgentProtocolMessage[] = [...input.protocolMessages, { role: "user", content: await buildUserContent(input) }];
     const sourceText = input.sources.length ? "\n\n【当前对话可引用的素材】\n" + input.sources.map((source) => `- ${source.label}：ID ${source.id}（${source.kind}）`).join("\n") : "";
-    const systemPrompt = SYSTEM_PROMPT + sourceText + (input.skillPrompt ? "\n\n" + input.skillPrompt : "");
+    let contextCheckpoint = input.contextCheckpoint;
+    const systemPrompt = () => SYSTEM_PROMPT + sourceText + (input.skillPrompt ? "\n\n" + input.skillPrompt : "") + (contextCheckpoint ? "\n\n【较早对话摘要】\n" + contextCheckpoint : "");
+    const compactHistory = async () => {
+        const stepId = nanoid();
+        input.onStep({ id: stepId, label: "压缩较早的对话", status: "running" });
+        const compacted = await compactCanvasAgentHistory({
+            protocolMessages: messages,
+            contextCheckpoint,
+            createCheckpoint: (previousCheckpoint, items) => requestCanvasAgentCheckpoint({ config: input.config, previousCheckpoint, messages: serializeCanvasAgentMessagesForCheckpoint(items), signal: input.signal }),
+        });
+        input.onStep({ id: stepId, label: "压缩较早的对话", status: "success" });
+        messages = compacted.protocolMessages;
+        contextCheckpoint = compacted.contextCheckpoint;
+        return compacted.compacted;
+    };
+    const finish = (reply: string, extra: { responseItems?: unknown[] } = {}) => ({
+        reply,
+        contextCheckpoint,
+        protocolMessages: persistProtocolMessages([...messages, { role: "assistant", content: reply, ...extra }]),
+    });
 
     for (let step = 0; step < MAX_STEPS; step++) {
         input.signal.throwIfAborted();
+        if (estimateCanvasAgentInputTokens({ systemPrompt: systemPrompt(), messages, tools: AGENT_TOOLS }, canvasAgentTokenCalibrationKey(input.config)) >= MAX_AGENT_INPUT_TOKENS) await compactHistory();
         const thinkingId = nanoid();
         input.onStep({ id: thinkingId, label: step ? "根据结果继续处理" : "理解需求", status: "running" });
-        const turn = await requestCanvasAgentTurn({ config: input.config, systemPrompt, messages, tools: AGENT_TOOLS, toolMode, signal: input.signal });
+        const requestTurn = () => requestCanvasAgentTurn({ config: input.config, systemPrompt: systemPrompt(), messages, tools: AGENT_TOOLS, toolMode, signal: input.signal });
+        let turn: Awaited<ReturnType<typeof requestCanvasAgentTurn>>;
+        try {
+            turn = await requestTurn();
+        } catch (error) {
+            if (!isCanvasAgentContextLimitError(error) || !(await compactHistory())) throw error;
+            turn = await requestTurn();
+        }
         input.onStep({ id: thinkingId, label: step ? "根据结果继续处理" : "理解需求", status: "success" });
         toolMode = turn.toolMode;
         if (toolMode === "native" && !turn.toolCalls.length && turn.content.trim() === CANVAS_AGENT_JSON_FALLBACK_SIGNAL) {
@@ -84,11 +113,9 @@ export async function runAgentChat(input: RunAgentChatInput) {
             ...(turn.toolCalls.length ? { toolCalls: turn.toolCalls } : {}),
         };
 
-        if (!error && !actions.length) {
-            const reply = (parsed?.parsed ? parsed.reply : turn.content).trim() || "好的，还有什么需要我做的？";
-            messages = [...messages, { role: "assistant", content: reply, ...(turn.responseItems?.length ? { responseItems: turn.responseItems } : {}) }];
-            return { reply, protocolMessages: persistProtocolMessages(messages) };
-        }
+        const text = (parsed?.parsed ? parsed.reply : turn.content).trim();
+        if (!error && !actions.length) return finish(text || "好的，还有什么需要我做的？", turn.responseItems?.length ? { responseItems: turn.responseItems } : {});
+        if (text && !error) input.onStep({ id: nanoid(), label: text, status: "success", note: true });
 
         const results: Array<{ id: string; name: string; result: CanvasAgentToolResult }> = error
             ? turn.toolCalls.map((call) => ({ id: call.id, name: call.name, result: { ok: false, code: "invalid_tool_arguments", message: error + "。本批操作均未执行，请按工具定义修正后重试。" } as CanvasAgentToolResult }))
@@ -102,8 +129,7 @@ export async function runAgentChat(input: RunAgentChatInput) {
         ];
     }
 
-    const reply = "本轮已达到操作步数上限，已完成的结果都保留在对话里。你可以让我继续下一步。";
-    return { reply, protocolMessages: persistProtocolMessages([...messages, { role: "assistant", content: reply }]) };
+    return finish("本轮已达到操作步数上限，已完成的结果都保留在对话里。你可以让我继续下一步。");
 }
 
 async function executeAction(action: CanvasAgentAction, input: RunAgentChatInput): Promise<CanvasAgentToolResult> {

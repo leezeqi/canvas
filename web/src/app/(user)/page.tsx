@@ -1,12 +1,14 @@
 "use client";
 
-import { type ChangeEvent, useEffect, useRef, useState } from "react";
+import { type ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { App, Segmented, Tooltip } from "antd";
-import { FolderPlus, Check, ChevronRight, Copy, MessageSquare, Download, LoaderCircle, Maximize2, X } from "lucide-react";
+import dayjs from "dayjs";
+import { FolderPlus, Check, ChevronRight, Copy, MessageSquare, Download, LoaderCircle, Maximize2, ThumbsDown, ThumbsUp, X } from "lucide-react";
 import { nanoid } from "nanoid";
 import { useRouter } from "next/navigation";
 
 import { ImageGenerationPending } from "@/components/image-generation-pending";
+import { ModelPicker } from "@/components/model-picker";
 import { useCopyText } from "@/hooks/use-copy-text";
 import { cn } from "@/lib/utils";
 import { resolveMediaUrl, uploadAssetMediaFile } from "@/services/file-storage";
@@ -17,6 +19,7 @@ import { useAssetStore } from "@/stores/use-asset-store";
 import { useConfigStore, useEffectiveConfig } from "@/stores/use-config-store";
 import { runAgentChat, type AgentMediaSource } from "./agent-runtime";
 import { AssetPickerModal } from "./canvas/components/asset-picker-modal";
+import { estimateCanvasAgentInputTokens, MAX_AGENT_INPUT_TOKENS } from "./canvas/agent/canvas-agent-memory";
 import { ASSISTANT_MARKDOWN_COMPONENTS, AssistantMarkdown } from "./canvas/components/canvas-assistant-panel";
 import { CanvasAssistantComposer } from "./canvas/components/canvas-assistant-composer";
 import { useCanvasStore } from "./canvas/stores/use-canvas-store";
@@ -85,6 +88,10 @@ export default function AgentPage() {
     const effectiveConfig = useEffectiveConfig();
     const isAiConfigReady = useConfigStore((state) => state.isAiConfigReady);
     const openConfigDialog = useConfigStore((state) => state.openConfigDialog);
+    const updateConfig = useConfigStore((state) => state.updateConfig);
+    const systemSkills = useAgentSkillStore((state) => state.systemSkills);
+    const userSkills = useAgentSkillStore((state) => state.userSkills);
+    const quickSkills = [...systemSkills, ...userSkills].filter((skill) => skill.enabled).slice(0, 4);
     const createProject = useCanvasStore((state) => state.createProject);
     const canvasHydrated = useCanvasStore((state) => state.hydrated);
     const { sessions, activeId, createSession, updateSession } = useAgentChatStore();
@@ -108,10 +115,18 @@ export default function AgentPage() {
     const uploadInputRef = useRef<HTMLInputElement>(null);
     const pendingAssetCountsRef = useRef<Record<InsertAssetPayload["kind"], number>>({ text: 0, image: 0, video: 0, audio: 0 });
     const messages = session?.messages || [];
+    const protocolMessages = session?.protocolMessages;
+    const contextCheckpoint = session?.contextCheckpoint;
+    const contextTokens = useMemo(() => (protocolMessages?.length ? estimateCanvasAgentInputTokens({ systemPrompt: contextCheckpoint || "", messages: protocolMessages, tools: [] }) : 0), [contextCheckpoint, protocolMessages]);
 
     useEffect(() => {
         scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
     }, [messages]);
+
+    useEffect(() => {
+        const store = useAgentSkillStore.getState();
+        if (!store.systemSkills.length && !store.userSkills.length) void store.loadSkills().catch(() => {});
+    }, []);
 
     const addPendingAsset = (payload: InsertAssetPayload) => {
         const asset = toPendingAgentAsset(payload, canvasResourceLabel(payload.kind, pendingAssetCountsRef.current[payload.kind]++));
@@ -203,11 +218,11 @@ export default function AgentPage() {
         const sessionId = session ? session.id : createSession(text.slice(0, 24));
         const history = useAgentChatStore.getState().sessions.find((item) => item.id === sessionId);
         const references = assets.map((asset) => asset.reference);
-        const userMessage: AgentChatMessage = { id: nanoid(), role: "user", text, references, skills: selectedSkills };
+        const userMessage: AgentChatMessage = { id: nanoid(), role: "user", text, references, skills: selectedSkills, createdAt: Date.now() };
         const assistantId = nanoid();
         const patchAssistant = (patch: (current: AgentChatMessage) => AgentChatMessage) =>
             updateSession(sessionId, (current) => ({ ...current, messages: current.messages.map((item) => (item.id === assistantId ? patch(item) : item)) }));
-        updateSession(sessionId, (current) => ({ ...current, messages: [...current.messages, userMessage, { id: assistantId, role: "assistant", text: "", status: "running", steps: [], media: [], startedAt: Date.now() }] }));
+        updateSession(sessionId, (current) => ({ ...current, messages: [...current.messages, userMessage, { id: assistantId, role: "assistant", text: "", status: "running", steps: [], media: [], startedAt: Date.now(), createdAt: Date.now() }] }));
         setPrompt("");
         setPendingAssets([]);
         setSelectedSkills([]);
@@ -222,6 +237,7 @@ export default function AgentPage() {
                 config,
                 mediaConfig: { ...effectiveConfig, quality: agentConfig.imageQuality, size: agentConfig.imageSize, vquality: agentConfig.videoQuality, videoSize: agentConfig.videoSize },
                 protocolMessages: history?.protocolMessages || [],
+                contextCheckpoint: history?.contextCheckpoint,
                 userText: text + textReferences,
                 sources: collectSources([...(history?.messages || []), userMessage]),
                 turnSourceIds: references.map((reference) => reference.id),
@@ -233,6 +249,7 @@ export default function AgentPage() {
             updateSession(sessionId, (current) => ({
                 ...current,
                 protocolMessages: result.protocolMessages,
+                contextCheckpoint: result.contextCheckpoint,
                 messages: current.messages.map((item) => (item.id === assistantId ? { ...item, text: result.reply, status: "success", endedAt: Date.now() } : item)),
             }));
         } catch (error) {
@@ -250,6 +267,11 @@ export default function AgentPage() {
         }
     };
 
+    const setFeedback = (messageId: string, feedback: "up" | "down") => {
+        if (!session) return;
+        updateSession(session.id, (current) => ({ ...current, messages: current.messages.map((item) => (item.id === messageId ? { ...item, feedback: item.feedback === feedback ? undefined : feedback } : item)) }));
+    };
+
     const reuseMedia = (payload: InsertAssetPayload, toCanvas: boolean) => {
         addPendingAsset(payload);
         if (toCanvas) {
@@ -260,9 +282,47 @@ export default function AgentPage() {
 
     const composer = (
         <div className="w-full">
-            <div className="mb-2 flex items-center justify-between gap-3 px-2">
-                <Segmented size="small" value={mode} onChange={(value) => setMode(value as "chat" | "canvas")} options={[{ label: "对话", value: "chat" }, { label: "画布", value: "canvas" }]} />
-                <span className="truncate text-xs text-foreground/45">{mode === "chat" ? "生成结果直接显示在对话里" : "新建画布，由 Agent 编排节点"}</span>
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2 px-2">
+                <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                    <Tooltip title={mode === "chat" ? "生成结果直接显示在对话里" : "新建画布，由 Agent 编排节点"}>
+                        <Segmented size="small" value={mode} onChange={(value) => setMode(value as "chat" | "canvas")} options={[{ label: "对话", value: "chat" }, { label: "画布", value: "canvas" }]} />
+                    </Tooltip>
+                    {quickSkills.map((skill) => {
+                        const active = selectedSkills.some((selected) => selected.id === skill.id && selected.source === skill.source);
+                        return (
+                            <button
+                                key={`${skill.source}:${skill.id}`}
+                                type="button"
+                                className={cn("max-w-[140px] truncate rounded-full px-3 py-1 text-xs transition", active ? "bg-foreground text-background" : "bg-card/70 text-foreground/60 shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:bg-card hover:text-foreground")}
+                                onClick={() => (active ? setSelectedSkills((current) => current.filter((selected) => selected.id !== skill.id || selected.source !== skill.source)) : selectSkill({ id: skill.id, name: skill.name, source: skill.source }))}
+                            >
+                                {skill.name}
+                            </button>
+                        );
+                    })}
+                </div>
+                <div className="flex items-center gap-2">
+                    {mode === "chat" && contextTokens ? (
+                        <Tooltip title="估算的上下文用量，接近上限时会自动压缩较早的对话">
+                            <span className="text-[11px] tabular-nums text-foreground/45">
+                                {Math.min(100, (contextTokens / MAX_AGENT_INPUT_TOKENS) * 100).toFixed(1)}% · {(contextTokens / 1000).toFixed(1)}K / {MAX_AGENT_INPUT_TOKENS / 1000}K
+                            </span>
+                        </Tooltip>
+                    ) : null}
+                    <ModelPicker
+                        className="!h-8 !w-[180px] !min-w-0"
+                        config={effectiveConfig}
+                        value={effectiveConfig.textModel}
+                        channelId={effectiveConfig.textChannelId}
+                        capability="text"
+                        placeholder="选择文字模型"
+                        onChange={(model, channelId) => {
+                            updateConfig("textModel", model);
+                            updateConfig("textChannelId", channelId || "");
+                        }}
+                        onMissingConfig={() => openConfigDialog(true)}
+                    />
+                </div>
             </div>
             <CanvasAssistantComposer
                 prompt={prompt}
@@ -308,10 +368,19 @@ export default function AgentPage() {
                                             </div>
                                         ) : null}
                                         {item.text && item.status !== "running" ? (
-                                            <button type="button" className="inline-flex items-center gap-1 rounded-lg px-1.5 py-1 text-xs text-foreground/40 transition hover:bg-foreground/5 hover:text-foreground" onClick={() => copyText(item.text)}>
-                                                <Copy className="size-3.5" />
-                                                复制
-                                            </button>
+                                            <div className="flex items-center gap-0.5 text-foreground/40">
+                                                {[
+                                                    { label: "复制这条消息", icon: Copy, active: false, onClick: () => copyText(item.text) },
+                                                    { label: "有帮助", icon: ThumbsUp, active: item.feedback === "up", onClick: () => setFeedback(item.id, "up") },
+                                                    { label: "没帮助", icon: ThumbsDown, active: item.feedback === "down", onClick: () => setFeedback(item.id, "down") },
+                                                ].map(({ label, icon: Icon, active, onClick }) => (
+                                                    <Tooltip key={label} title={label}>
+                                                        <button type="button" className={cn("inline-flex size-7 items-center justify-center rounded-lg transition hover:bg-foreground/5 hover:text-foreground", active && "text-foreground")} onClick={onClick} aria-label={label}>
+                                                            <Icon className={cn("size-3.5", active && "fill-current")} />
+                                                        </button>
+                                                    </Tooltip>
+                                                ))}
+                                            </div>
                                         ) : null}
                                     </div>
                                 ),
@@ -357,7 +426,9 @@ function UserMessage({ message }: { message: AgentChatMessage }) {
                 </div>
             ) : null}
             <div className="max-w-[80%] whitespace-pre-wrap break-words rounded-2xl rounded-tr-md bg-card px-4 py-2.5 text-[15px] leading-relaxed shadow-[0_1px_3px_rgba(0,0,0,0.06)]">{message.text}</div>
-            {message.skills?.length ? <div className="text-xs text-foreground/40">Skill：{message.skills.map((skill) => skill.name).join("、")}</div> : null}
+            <div className="text-xs text-foreground/40">
+                {[message.skills?.length ? `Skill：${message.skills.map((skill) => skill.name).join("、")}` : "", message.createdAt ? dayjs(message.createdAt).format("HH:mm") : ""].filter(Boolean).join(" · ")}
+            </div>
         </div>
     );
 }
@@ -379,12 +450,14 @@ function AssistantMeta({ message }: { message: AgentChatMessage }) {
     }, [running]);
     const seconds = message.startedAt ? Math.max(1, Math.round(((running ? now : message.endedAt || now) - message.startedAt) / 1000)) : 0;
     const steps = message.steps || [];
+    const currentStep = steps.filter((step) => !step.note).at(-1)?.label || "处理中";
 
     return (
         <div className="space-y-2">
             <div className="flex items-center gap-2 text-xs text-foreground/45">
                 {running ? <LoaderCircle className="size-3.5 animate-spin" /> : null}
-                <span>{running ? `${steps.at(-1)?.label || "处理中"} · ${seconds} 秒` : `已处理 ${seconds} 秒`}</span>
+                <span>{running ? `${currentStep} · ${seconds} 秒` : `已处理 ${seconds} 秒`}</span>
+                {message.createdAt ? <span className="text-foreground/30">{dayjs(message.createdAt).format("HH:mm")}</span> : null}
             </div>
             {steps.length ? (
                 <details className="group rounded-2xl border border-border/50 bg-card/60 px-4 py-2.5">
@@ -394,7 +467,9 @@ function AssistantMeta({ message }: { message: AgentChatMessage }) {
                         <span className="font-normal text-foreground/40">{steps.length} 条记录</span>
                     </summary>
                     <ol className="mt-2 space-y-1.5 pl-5">
-                        {steps.map((step) => (
+                        {steps.map((step) => step.note ? (
+                            <li key={step.id} className="whitespace-pre-wrap break-words text-[13px] leading-relaxed text-foreground/75">{step.label}</li>
+                        ) : (
                             <li key={step.id} className="flex items-center gap-2 text-xs text-foreground/60">
                                 {step.status === "running" ? <LoaderCircle className="size-3 animate-spin" /> : step.status === "error" ? <X className="size-3 text-destructive" /> : <Check className="size-3 text-emerald-500" />}
                                 <span>{step.label}</span>

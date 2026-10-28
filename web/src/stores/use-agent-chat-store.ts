@@ -11,11 +11,13 @@ import { fetchUserAgentSessions, syncUserAgentSessions } from "@/services/api/us
 export type AgentChatStatus = "running" | "success" | "error";
 export type AgentChatMediaKind = "image" | "video" | "audio";
 export type AgentChatMedia = { id: string; kind: AgentChatMediaKind; prompt: string; status: AgentChatStatus; url?: string; storageKey?: string; mimeType?: string; error?: string };
-export type AgentChatStep = { id: string; label: string; status: AgentChatStatus; startedAt: number; endedAt?: number };
+export type AgentChatStep = { id: string; label: string; status: AgentChatStatus; note?: boolean; startedAt: number; endedAt?: number };
 export type AgentChatMessage = {
     id: string;
     role: "user" | "assistant";
     text: string;
+    createdAt?: number;
+    feedback?: "up" | "down";
     status?: AgentChatStatus;
     references?: CanvasAssistantReference[];
     skills?: CanvasAgentSkillSelection[];
@@ -31,6 +33,7 @@ export type AgentChatSession = {
     updatedAt: string;
     messages: AgentChatMessage[];
     protocolMessages?: CanvasAgentProtocolMessage[];
+    contextCheckpoint?: string;
 };
 
 type AgentChatStore = {
