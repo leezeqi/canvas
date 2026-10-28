@@ -33,7 +33,8 @@ export type RunAgentChatInput = {
 };
 
 const MAX_STEPS = 8;
-const MAX_VIDEO_BYTES = 15 * 1024 * 1024;
+// 百炼要求 Base64 编码后小于 10MB，按最严格的渠道限制原始文件大小。
+const MAX_VIDEO_BYTES = 7 * 1024 * 1024;
 const KIND_LABEL: Record<AgentChatMediaKind, string> = { image: "图片", video: "视频", audio: "语音" };
 const DONE_STATUS = ["completed", "complete", "done", "succeeded", "success"];
 const FAILED_STATUS = ["failed", "error", "cancelled", "canceled"];
@@ -262,7 +263,7 @@ async function buildUserContent(input: RunAgentChatInput): Promise<CanvasAgentCo
 async function videoToDataUrl(source: AgentMediaSource) {
     const url = await resolveMediaUrl(source.storageKey, source.url || "");
     const blob = /^(blob|data):/.test(url) ? await (await fetch(url)).blob() : await downloadRemoteMedia(url);
-    if (blob.size > MAX_VIDEO_BYTES) throw new Error(`${source.label}超过 15MB，请压缩后再让模型理解`);
+    if (blob.size > MAX_VIDEO_BYTES) throw new Error(`${source.label}超过 7MB，请压缩后再让模型理解`);
     return readFileAsDataUrl(new File([blob], "video", { type: blob.type || source.mimeType || "video/mp4" }), "读取视频失败");
 }
 
