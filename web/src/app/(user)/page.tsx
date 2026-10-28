@@ -3,13 +3,14 @@
 import { type ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { App, Segmented, Tooltip } from "antd";
 import dayjs from "dayjs";
-import { FolderPlus, Check, ChevronRight, Copy, MessageSquare, Download, LoaderCircle, Maximize2, ThumbsDown, ThumbsUp, X } from "lucide-react";
+import { FolderPlus, Check, ChevronRight, Clapperboard, Copy, Globe2, MessageSquare, Download, LoaderCircle, Maximize2, ThumbsDown, ThumbsUp, X } from "lucide-react";
 import { nanoid } from "nanoid";
 import { useRouter } from "next/navigation";
 
 import { ImageGenerationPending } from "@/components/image-generation-pending";
 import { ModelPicker } from "@/components/model-picker";
 import { useCopyText } from "@/hooks/use-copy-text";
+import { isGeminiConfig } from "@/lib/gemini";
 import { cn } from "@/lib/utils";
 import { resolveMediaUrl, uploadAssetMediaFile } from "@/services/file-storage";
 import { resolveImageUrl, uploadImage } from "@/services/image-storage";
@@ -102,6 +103,8 @@ export default function AgentPage() {
     const [selectedSkills, setSelectedSkills] = useState<CanvasAgentSkillSelection[]>([]);
     const [assetPickerOpen, setAssetPickerOpen] = useState(false);
     const [running, setRunning] = useState(false);
+    const [webSearch, setWebSearch] = useState(false);
+    const [videoUnderstanding, setVideoUnderstanding] = useState(false);
     const [agentConfig, setAgentConfig] = useState<CanvasAgentConfig>(() => ({
         textApiMode: "chat",
         autoGenerateMedia: false,
@@ -202,7 +205,10 @@ export default function AgentPage() {
             textReasoningEnabled: agentConfig.textReasoningEnabled === true,
             activeChannelId: effectiveConfig.textChannelId || effectiveConfig.activeChannelId,
             textChannelId: effectiveConfig.textChannelId,
+            webSearch,
         };
+        // 模型自带联网：非 Gemini 渠道通过 Responses 接口的 web_search 工具实现。
+        if (webSearch && !isGeminiConfig(config)) config.apiMode = "responses";
         if (!isAiConfigReady(config, config.model)) {
             message.warning("请先在设置中配置文本模型和渠道");
             openConfigDialog(false);
@@ -241,6 +247,7 @@ export default function AgentPage() {
                 userText: text + textReferences,
                 sources: collectSources([...(history?.messages || []), userMessage]),
                 turnSourceIds: references.map((reference) => reference.id),
+                videoUnderstanding,
                 skillPrompt,
                 signal: controller.signal,
                 onStep: (step) => patchAssistant((current) => ({ ...current, steps: upsert<AgentChatStep>(current.steps, { ...step, startedAt: current.steps?.find((item) => item.id === step.id)?.startedAt || Date.now(), endedAt: step.status === "running" ? undefined : Date.now() }) })),
@@ -287,6 +294,19 @@ export default function AgentPage() {
                     <Tooltip title={mode === "chat" ? "生成结果直接显示在对话里" : "新建画布，由 Agent 编排节点"}>
                         <Segmented size="small" value={mode} onChange={(value) => setMode(value as "chat" | "canvas")} options={[{ label: "对话", value: "chat" }, { label: "画布", value: "canvas" }]} />
                     </Tooltip>
+                    {mode === "chat"
+                        ? [
+                              { label: "联网搜索", icon: Globe2, active: webSearch, toggle: () => setWebSearch(!webSearch), tip: "使用模型自带联网：OpenAI、火山方舟走 Responses 接口，Gemini 用 Google 搜索（本轮只搜索、不调用生成工具）；其他渠道不支持" },
+                              { label: "视频理解", icon: Clapperboard, active: videoUnderstanding, toggle: () => setVideoUnderstanding(!videoUnderstanding), tip: "把本次附带的视频直接交给模型理解画面和声音，需要模型支持视频输入（如 Gemini、通义千问 VL、豆包），单个视频不超过 15MB" },
+                          ].map(({ label, icon: Icon, active, toggle, tip }) => (
+                              <Tooltip key={label} title={tip}>
+                                  <button type="button" aria-pressed={active} className={cn("inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs transition", active ? "bg-foreground text-background" : "bg-card/70 text-foreground/60 shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:bg-card hover:text-foreground")} onClick={toggle}>
+                                      <Icon className="size-3.5" />
+                                      {label}
+                                  </button>
+                              </Tooltip>
+                          ))
+                        : null}
                     {quickSkills.map((skill) => {
                         const active = selectedSkills.some((selected) => selected.id === skill.id && selected.source === skill.source);
                         return (

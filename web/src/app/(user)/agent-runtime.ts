@@ -4,7 +4,9 @@ import { createCanvasAudioTask, pollCanvasAudioTaskStatus } from "@/services/api
 import { CANVAS_AGENT_JSON_FALLBACK_SIGNAL, canvasAgentTokenCalibrationKey, isCanvasAgentContextLimitError, requestCanvasAgentCheckpoint, requestCanvasAgentTurn } from "@/services/api/canvas-agent";
 import { createCanvasImageTask, pollCanvasImageTaskStatus } from "@/services/api/image";
 import { createVideoGenerationTask, pollCreatedVideoGenerationTask } from "@/services/api/video";
+import { downloadRemoteMedia, resolveMediaUrl } from "@/services/file-storage";
 import { imageToDataUrl, uploadImage } from "@/services/image-storage";
+import { readFileAsDataUrl } from "@/lib/image-utils";
 import type { AgentChatMedia, AgentChatMediaKind, AgentChatStatus } from "@/stores/use-agent-chat-store";
 import { defaultConfig, useConfigStore, type AiConfig } from "@/stores/use-config-store";
 import type { ReferenceImage } from "@/types/image";
@@ -23,6 +25,7 @@ export type RunAgentChatInput = {
     userText: string;
     sources: AgentMediaSource[];
     turnSourceIds: string[];
+    videoUnderstanding?: boolean;
     skillPrompt?: string;
     signal: AbortSignal;
     onStep: (step: { id: string; label: string; status: AgentChatStatus; note?: boolean }) => void;
@@ -30,6 +33,7 @@ export type RunAgentChatInput = {
 };
 
 const MAX_STEPS = 8;
+const MAX_VIDEO_BYTES = 15 * 1024 * 1024;
 const KIND_LABEL: Record<AgentChatMediaKind, string> = { image: "图片", video: "视频", audio: "语音" };
 const DONE_STATUS = ["completed", "complete", "done", "succeeded", "success"];
 const FAILED_STATUS = ["failed", "error", "cancelled", "canceled"];
@@ -90,6 +94,10 @@ export async function runAgentChat(input: RunAgentChatInput) {
         }
         input.onStep({ id: thinkingId, label: step ? "根据结果继续处理" : "理解需求", status: "success" });
         toolMode = turn.toolMode;
+        turn.responseItems?.forEach((item) => {
+            const call = item as { type?: string; action?: { query?: string } };
+            if (call.type === "web_search_call") input.onStep({ id: nanoid(), label: `联网搜索：${call.action?.query || "已检索网页"}`, status: "success", note: true });
+        });
         if (toolMode === "native" && !turn.toolCalls.length && turn.content.trim() === CANVAS_AGENT_JSON_FALLBACK_SIGNAL) {
             toolMode = "structured-json";
             continue;
@@ -239,8 +247,23 @@ async function buildUserContent(input: RunAgentChatInput): Promise<CanvasAgentCo
     const turnSources = input.sources.filter((source) => input.turnSourceIds.includes(source.id));
     const text = input.userText + (turnSources.length ? "\n\n本次消息附带的素材：" + turnSources.map((source) => `${source.label} → ID ${source.id}`).join("；") : "");
     const images = await Promise.all(turnSources.filter((source) => source.kind === "image").map((source) => imageToDataUrl({ url: source.url, storageKey: source.storageKey }).catch(() => "")));
-    const parts = images.filter(Boolean).map((url) => ({ type: "image_url" as const, image_url: { url } }));
+    const videoSources = input.videoUnderstanding ? turnSources.filter((source) => source.kind === "video") : [];
+    const stepId = nanoid();
+    if (videoSources.length) input.onStep({ id: stepId, label: "读取视频", status: "running" });
+    const videos = await Promise.all(videoSources.map(videoToDataUrl));
+    if (videoSources.length) input.onStep({ id: stepId, label: "读取视频", status: "success" });
+    const parts = [
+        ...images.filter(Boolean).map((url) => ({ type: "image_url" as const, image_url: { url } })),
+        ...videos.map((url) => ({ type: "video_url" as const, video_url: { url } })),
+    ];
     return parts.length ? [{ type: "text", text }, ...parts] : text;
+}
+
+async function videoToDataUrl(source: AgentMediaSource) {
+    const url = await resolveMediaUrl(source.storageKey, source.url || "");
+    const blob = /^(blob|data):/.test(url) ? await (await fetch(url)).blob() : await downloadRemoteMedia(url);
+    if (blob.size > MAX_VIDEO_BYTES) throw new Error(`${source.label}超过 15MB，请压缩后再让模型理解`);
+    return readFileAsDataUrl(new File([blob], "video", { type: blob.type || source.mimeType || "video/mp4" }), "读取视频失败");
 }
 
 function persistProtocolMessages(messages: CanvasAgentProtocolMessage[]) {

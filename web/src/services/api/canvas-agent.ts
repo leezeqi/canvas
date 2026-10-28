@@ -96,7 +96,7 @@ class CanvasAgentRequestError extends Error {
     }
 }
 
-type CanvasAgentAiConfig = AiConfig & { textReasoningEnabled?: boolean; textStreaming?: boolean };
+type CanvasAgentAiConfig = AiConfig & { textReasoningEnabled?: boolean; textStreaming?: boolean; webSearch?: boolean };
 
 function applyCanvasAgentReasoning(body: Record<string, unknown>, config: CanvasAgentAiConfig, mode: "chat" | "responses" | "gemini") {
     if (!config.textReasoningEnabled) return;
@@ -290,8 +290,9 @@ async function requestResponsesCompletion(config: CanvasAgentAiConfig, systemPro
         include: ["reasoning.encrypted_content"],
     };
     if (config.textStreaming) body.stream = true;
-    if (tools.length) {
-        body.tools = tools.map((tool) => ({ type: "function", ...tool.function }));
+    const responseTools = [...tools.map((tool) => ({ type: "function", ...tool.function })), ...(config.webSearch ? [{ type: "web_search" }] : [])];
+    if (responseTools.length) {
+        body.tools = responseTools;
         body.tool_choice = "auto";
     }
     if (jsonSchema) body.text = { format: { type: "json_schema", name: "canvas_agent_actions", schema: jsonSchema } };
@@ -376,6 +377,7 @@ async function requestGeminiCompletion(config: CanvasAgentAiConfig, systemPrompt
         }
         const parts = await Promise.all((typeof message.content === "string" ? [{ type: "text" as const, text: message.content }] : message.content).map(async (part) => {
             if (part.type === "text") return { text: part.text };
+            if (part.type === "video_url") return dataUrlToGeminiInlineData(part.video_url.url);
             return dataUrlToGeminiInlineData(await imageToDataUrl({ dataUrl: part.image_url.url, url: part.image_url.url }));
         }));
         return { role: "user", parts };
@@ -386,7 +388,8 @@ async function requestGeminiCompletion(config: CanvasAgentAiConfig, systemPrompt
         stream: config.textStreaming === true,
         systemInstruction: { parts: [{ text: systemPrompt }, ...extraSystemParts] },
         contents,
-        ...(tools.length ? { tools: [{ functionDeclarations: tools.map((tool) => tool.function) }] } : {}),
+        // 部分 Gemini 版本不允许 Google 搜索和自定义函数同时使用，开启联网时本轮只搜索。
+        ...(config.webSearch ? { tools: [{ google_search: {} }] } : tools.length ? { tools: [{ functionDeclarations: tools.map((tool) => tool.function) }] } : {}),
         ...(jsonSchema ? { generationConfig: { responseFormat: { text: { mimeType: "application/json", schema: jsonSchema } } } } : {}),
     };
     applyCanvasAgentReasoning(body, config, "gemini");
@@ -526,7 +529,7 @@ function toResponsesInput(message: CanvasAgentProtocolMessage): unknown[] {
     if (message.role === "tool") return [{ type: "function_call_output", call_id: message.toolCallId, output: message.content }];
     return [{
         role: message.role,
-        content: typeof message.content === "string" ? message.content : message.content.map((part) => part.type === "text" ? { type: "input_text", text: part.text } : { type: "input_image", image_url: part.image_url.url }),
+        content: typeof message.content === "string" ? message.content : message.content.map((part) => part.type === "text" ? { type: "input_text", text: part.text } : part.type === "video_url" ? { type: "input_video", video_url: part.video_url.url } : { type: "input_image", image_url: part.image_url.url }),
     }];
 }
 
