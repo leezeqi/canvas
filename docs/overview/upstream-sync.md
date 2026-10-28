@@ -69,7 +69,7 @@ git merge --no-ff --no-commit upstream/main
 - 上游的通用修复和新功能优先保留，本项目二改逐项确认保留。
 - 已删除的 APIMart、88API、KIE、AutoDL 保持删除；上游对这些文件的修改（modify/delete 冲突）直接 `git rm`，上游新代码里引用这些渠道的分支一并去掉。
 - 本地删渠道时顺带删掉的通用钩子，如果上游新功能还在用就补回来，例如 `videoError`、`readCreatedImageURLs`、`pollURL`、`collectHTTPURLs`。
-- 用户端已改为左侧栏 + Agent 对话首页：`app-top-nav.tsx`、`mobile-nav-drawer.tsx`、`home-banner-carousel.tsx`、`home-recent-projects.tsx`、`components/home/infinite-canvas-svg-background.tsx` 保持删除（modify/delete 冲突直接 `git rm`）；`web/src/app/(user)/page.tsx`、`(user)/layout.tsx`、`constant/navigation-tools.ts` 以本地版本为准，上游对导航或首页新增的入口手动并入 `navigationTools` 或侧栏。
+- 用户端已改为左侧栏 + Agent 对话首页：`app-top-nav.tsx`、`mobile-nav-drawer.tsx`、`home-banner-carousel.tsx`、`home-recent-projects.tsx`、`components/home/infinite-canvas-svg-background.tsx` 保持删除（modify/delete 冲突直接 `git rm`）；`web/src/app/(user)/page.tsx`、`(user)/layout.tsx`、`constant/navigation-tools.ts` 以本地版本为准，上游对导航或首页新增的入口手动并入 `navigationTools` 或侧栏。`app-config-modal.tsx` 合并时保留本地加的 `section` 参数、`active`/`show`/`Shell` 和各分组的显示条件（设置页依赖它们），上游在弹窗里新增的配置项按所属分组包进对应的 `show(...)` 条件。
 - 上游函数签名变化（例如新增 `context`、`signal` 参数，积分改为 `float64`）要同步到本地新增文件的调用处。
 - 合并后扫描两类问题：前端 import 指向不存在的文件或导出；Go 代码调用已不存在的函数。
 

@@ -1,8 +1,8 @@
 "use client";
 
-import { App, Button, Form, Input, Modal, Radio, Segmented, Select, Switch } from "antd";
+import { App, Button, Form, Input, Modal, Radio, Segmented, Select, Switch, type ModalProps } from "antd";
 import dynamic from "next/dynamic";
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 
 import { ChannelModelSelectorModal } from "@/components/channel-model-selector-modal";
 import type { WorkflowChannelSettings } from "@/components/workflow/workflow-channel-pane";
@@ -44,7 +44,10 @@ const modelGroups: ModelGroup[] = [
 
 const WorkflowChannelPane = dynamic(() => import("@/components/workflow/workflow-channel-pane").then((module) => module.WorkflowChannelPane), { ssr: false });
 
-export function AppConfigModal() {
+export type AppConfigSection = "model" | "generation" | "storage";
+
+// 不传 section 时为全局配置弹窗；传入时嵌入设置页，只显示对应分组。
+export function AppConfigModal({ section }: { section?: AppConfigSection } = {}) {
     const { message } = App.useApp();
     const [loadingModels, setLoadingModels] = useState(false);
     const [savingConfig, setSavingConfig] = useState(false);
@@ -78,6 +81,9 @@ export function AppConfigModal() {
     const localModelConfig: AiConfig = effectiveMode === "local" && config.channelMode !== "local" ? { ...config, channelMode: "local" } : config;
     const modelConfig = effectiveMode === "remote" ? effectiveConfig : localModelConfig;
     const canUseUserStorageProvider = allowUserStorageProvider;
+    const active = Boolean(section) || isConfigOpen;
+    const show = (name: AppConfigSection) => !section || section === name;
+    const Shell: (props: ModalProps) => ReactNode = section ? AppConfigPanel : Modal;
     const glmTts = isGlmTtsModel(config.audioModel);
     const audioConfig = { ...modelConfig, model: config.audioModel, audioModel: config.audioModel, activeChannelId: modelConfig.audioChannelId || modelConfig.activeChannelId };
     const grokTts = isGrok2APITtsConfig(audioConfig, config.audioModel);
@@ -109,7 +115,7 @@ export function AppConfigModal() {
         setUserStorage(loadUserS3StorageProvider() || defaultUserStorageProvider());
         setUserWebDAVStorage(loadUserWebDAVStorageProvider() || defaultUserWebDAVStorageProvider());
         accountConfigRef.current = { ready: false };
-        if (!isConfigOpen || !token || !user?.id) return;
+        if (!active || !token || !user?.id) return;
         const accountToken = token;
         const accountId = user.id;
         const translationRevision = useChannelTranslationStore.getState().revisions[accountId] || 0;
@@ -160,10 +166,10 @@ export function AppConfigModal() {
         return () => {
             canceled = true;
         };
-    }, [isConfigOpen, token, updateConfig, user?.id]);
+    }, [active, token, updateConfig, user?.id]);
 
     useEffect(() => {
-        if (!isConfigOpen) return;
+        if (!active) return;
         let canceled = false;
         void loadStorageConfig()
             .then((storage) => {
@@ -175,7 +181,7 @@ export function AppConfigModal() {
         return () => {
             canceled = true;
         };
-    }, [isConfigOpen]);
+    }, [active]);
 
     const finishConfig = async () => {
         const localIncomplete = effectiveMode === "local" && normalizeLocalChannels(config).filter((channel) => !isWorkflowProtocol(channel.protocol)).some((channel) => !channel.baseUrl.trim() || !channel.apiKey.trim());
@@ -421,7 +427,7 @@ export function AppConfigModal() {
 
     return (
         <>
-            <Modal
+            <Shell
             title={
                 <div>
                     <div className="text-lg font-semibold">配置与用户偏好</div>
@@ -435,12 +441,13 @@ export function AppConfigModal() {
             styles={{ body: { maxHeight: "72vh", overflowY: "auto", paddingRight: 18 } }}
             footer={
                 <Button type="primary" loading={savingConfig} onClick={() => void finishConfig()}>
-                    完成
+                    {section ? "保存" : "完成"}
                 </Button>
             }
         >
             <div className="pt-1">
                 <Form layout="vertical" requiredMark={false}>
+                    {show("model") ? (<>
                     {allowCustomChannel && canUseRemoteChannel ? (
                         <Form.Item label="渠道模式" className="mb-5">
                             <Segmented
@@ -534,6 +541,8 @@ export function AppConfigModal() {
                             </Form.Item>
                         ))}
                     </div>
+                    </>) : null}
+                    {show("generation") ? (<>
                     <div className="grid gap-4 md:grid-cols-4">
                         <Form.Item label="画布默认生图张数" extra="新建画布生图和配置节点默认使用，单个节点仍可单独覆盖。" className="mb-4">
                             <Input
@@ -559,7 +568,7 @@ export function AppConfigModal() {
                             </Form.Item>
                         ) : isMimoTtsModel(config.audioModel) ? null : (
                             <Form.Item label="默认音频声音" className="mb-4">
-                                {grokTts ? <GrokTtsVoiceSelect config={audioConfig} model={config.audioModel} value={config.grokTtsVoice} enabled={isConfigOpen} onChange={(value) => updateConfig("grokTtsVoice", value)} /> : <Select value={glmTts ? normalizeGlmTtsVoice(config.glmTtsVoice) : config.audioVoice} options={glmTts ? glmTtsVoiceOptions : audioVoiceOptions} onChange={(value) => updateConfig(glmTts ? "glmTtsVoice" : "audioVoice", value)} />}
+                                {grokTts ? <GrokTtsVoiceSelect config={audioConfig} model={config.audioModel} value={config.grokTtsVoice} enabled={active} onChange={(value) => updateConfig("grokTtsVoice", value)} /> : <Select value={glmTts ? normalizeGlmTtsVoice(config.glmTtsVoice) : config.audioVoice} options={glmTts ? glmTtsVoiceOptions : audioVoiceOptions} onChange={(value) => updateConfig(glmTts ? "glmTtsVoice" : "audioVoice", value)} />}
                             </Form.Item>
                         )}
                         {grokTts ? (
@@ -604,7 +613,9 @@ export function AppConfigModal() {
                         <FeatureSwitch title="Codex CLI 兼容模式" description="开启后减少不兼容参数，并追加防提示词改写前缀。" checked={Boolean(config.codexCli)} onChange={(checked) => updateConfig("codexCli", checked ? "1" : "")} />
                         <FeatureSwitch title="视频音频生成" description="视频默认生成同步音频。" checked={config.videoGenerateAudio === "true"} onChange={(checked) => updateConfig("videoGenerateAudio", String(checked))} />
                     </div>
-                    {canUseUserStorageProvider ? (
+                    </>) : null}
+                    {section === "storage" && !canUseUserStorageProvider ? <div className="rounded-xl border border-border/60 p-4 text-sm text-muted-foreground">当前站点未开放自定义存储，图片和媒体会保存到默认存储。</div> : null}
+                    {show("storage") && canUseUserStorageProvider ? (
                         <>
                             <section className="mb-5 mt-4 rounded-xl border border-stone-200 bg-stone-50/70 p-3 dark:border-stone-800 dark:bg-stone-900/50">
                                 <div className="flex items-center justify-between gap-3">
@@ -667,19 +678,19 @@ export function AppConfigModal() {
                             </section>
                         </>
                     ) : null}
-                    {(!isMimoTtsModel(config.audioModel) || isMimoPresetTtsModel(config.audioModel) || isMimoVoiceCloneModel(config.audioModel)) && !glmTts && !grokTts ? (
+                    {show("generation") && (!isMimoTtsModel(config.audioModel) || isMimoPresetTtsModel(config.audioModel) || isMimoVoiceCloneModel(config.audioModel)) && !glmTts && !grokTts ? (
                         <Form.Item label="默认音频指令" className="mb-4">
                             <Input.TextArea rows={2} value={config.audioInstructions} placeholder="例如：自然、温暖、适合旁白。" onChange={(event) => updateConfig("audioInstructions", event.target.value)} />
                         </Form.Item>
                     ) : null}
-                    {effectiveMode === "local" ? (
+                    {show("generation") && effectiveMode === "local" ? (
                         <Form.Item label="系统提示词" className="mb-0">
                             <Input.TextArea rows={3} value={config.systemPrompt} placeholder="例如：你是一位擅长电影感写实摄影的视觉导演。" onChange={(event) => updateConfig("systemPrompt", event.target.value)} />
                         </Form.Item>
                     ) : null}
                 </Form>
             </div>
-            </Modal>
+            </Shell>
             {modelSelectChannel && isWorkflowProtocol(modelSelectChannel.protocol) ? (
                 <Modal title={`${modelSelectChannel.name || "工作流渠道"} · ${modelSelectChannel.protocol === "runninghub" ? "RunningHub" : "ComfyUI"} 工作流`} open width="75vw" centered onCancel={finishWorkflowChannel} footer={<Button type="primary" onClick={finishWorkflowChannel}>完成</Button>} styles={{ body: { maxHeight: "76vh", overflowY: "auto" } }}>
                     <WorkflowChannelPane key={`${user?.id || "guest"}:${modelSelectChannel.protocol}:${modelSelectChannel.id}`} channel={modelSelectChannel as WorkflowChannelSettings} workflows={workflowEntries} token={token || ""} onChannelChange={(patch) => patchLocalChannel(modelSelectChannel.id, patch)} onBridgeDeleted={(bridgeId) => {
@@ -753,4 +764,13 @@ function formatBytes(bytes: number) {
     if (bytes < 1024) return `${bytes}B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
     return `${(bytes / 1024 / 1024).toFixed(1)}MB`;
+}
+
+function AppConfigPanel({ children, footer }: ModalProps) {
+    return (
+        <div>
+            {children}
+            <div className="mt-6 flex justify-end">{footer as ReactNode}</div>
+        </div>
+    );
 }

@@ -2,7 +2,7 @@
 
 import { type ReactNode, useEffect, useState } from "react";
 import { App, Drawer, Dropdown, Input, Tooltip } from "antd";
-import { ArrowLeft, Menu, Ellipsis, PanelLeftClose, PanelLeftOpen, Plus, Search, Settings2 } from "lucide-react";
+import { ArrowLeft, Menu, Ellipsis, PanelLeftClose, PanelLeftOpen, Plus, Search } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
@@ -10,7 +10,6 @@ import { UserStatusActions } from "@/components/layout/user-status-actions";
 import { findNavigationTool, navigationTools } from "@/constant/navigation-tools";
 import { cn } from "@/lib/utils";
 import { useAgentChatStore } from "@/stores/use-agent-chat-store";
-import { useConfigStore } from "@/stores/use-config-store";
 import { useUserStore } from "@/stores/use-user-store";
 
 const itemClass = "flex h-10 w-full items-center gap-3 rounded-xl px-3 text-sm transition";
@@ -22,7 +21,6 @@ export function AppSideNav() {
     const router = useRouter();
     const { modal } = App.useApp();
     const user = useUserStore((state) => state.user);
-    const openConfigDialog = useConfigStore((state) => state.openConfigDialog);
     const { sessions, activeId, setActive, renameSession, removeSession } = useAgentChatStore();
     const [collapsed, setCollapsed] = useState(false);
     const [mobileOpen, setMobileOpen] = useState(false);
@@ -102,12 +100,6 @@ export function AppSideNav() {
                                 </Link>,
                             );
                         })}
-                        {wrap("设置",
-                            <button type="button" className={cn(itemClass, compact && "justify-center px-0", idleItemClass)} onClick={() => openConfigDialog(false)}>
-                                <Settings2 className="size-4 shrink-0" />
-                                {!compact ? "设置" : null}
-                            </button>,
-                        )}
                     </nav>
                 )}
 

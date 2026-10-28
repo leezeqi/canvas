@@ -1,5 +1,5 @@
 import type { ComponentType } from "react";
-import { Bot, Library, Maximize2, WandSparkles } from "lucide-react";
+import { Bot, Library, Maximize2, Settings2, WandSparkles } from "lucide-react";
 
 export type NavigationTool = { slug: string; label: string; icon: ComponentType<{ className?: string }>; href: string; tabs: Array<{ href: string; label: string }> };
 
@@ -28,6 +28,7 @@ export const navigationTools: NavigationTool[] = [
             { href: "/asset-library", label: "素材库" },
         ],
     },
+    { slug: "settings", label: "设置", icon: Settings2, href: "/settings", tabs: [] },
 ];
 
 export function findNavigationTool(pathname: string) {
