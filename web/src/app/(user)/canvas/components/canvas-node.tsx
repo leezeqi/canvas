@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import dynamic from "next/dynamic";
 import { ChevronRight, Image as ImageIcon, Maximize2, Music2, Pause, Play, RefreshCw, Star, Video } from "lucide-react";
@@ -43,7 +43,7 @@ type CanvasNodeProps = {
     onHoverStart: (nodeId: string) => void;
     onHoverEnd: (nodeId: string) => void;
     onConnectStart: (event: React.MouseEvent, nodeId: string, handleType: "source" | "target") => void;
-    onResize: (nodeId: string, width: number, height: number, position?: Position) => void;
+    onResize: (nodeId: string, width: number, height: number, position?: Position, loadedNode?: CanvasNodeData) => void;
     onContentChange: (nodeId: string, content: string) => void;
     onTitleChange: (nodeId: string, title: string) => void;
     onToggleBatch?: (nodeId: string) => void;
@@ -67,6 +67,7 @@ type NodeContentRendererProps = {
     batchRecovering: boolean;
     now?: number;
     renderNodeContent?: (node: CanvasNodeData) => ReactNode;
+    onResize: CanvasNodeProps["onResize"];
     onContentChange: (nodeId: string, content: string) => void;
     onStopEditing: () => void;
     mentionReferences: CanvasResourceReference[];
@@ -141,6 +142,11 @@ export const CanvasNode = React.memo(function CanvasNode({
         keepRatio: false,
         ratio: 1,
     });
+
+    useLayoutEffect(() => {
+        const { naturalWidth, naturalHeight, clientTaskId, isBatchRoot, batchRootId } = data.metadata || {};
+        if ((data.type === CanvasNodeType.Image || data.type === CanvasNodeType.Video) && clientTaskId && !isBatchRoot && !batchRootId && naturalWidth && naturalHeight) resizeRef.current.ratio = naturalWidth / naturalHeight;
+    }, [data.type, data.metadata?.clientTaskId, data.metadata?.isBatchRoot, data.metadata?.batchRootId, data.metadata?.naturalWidth, data.metadata?.naturalHeight]);
 
     useEffect(() => {
         setTitleDraft(data.title || "");
@@ -415,6 +421,7 @@ export const CanvasNode = React.memo(function CanvasNode({
                             batchRecovering={batchRecovering}
                             renderNodeContent={renderNodeContent}
                             mentionReferences={mentionReferences}
+                            onResize={onResize}
                             onContentChange={onContentChange}
                             onStopEditing={() => setIsEditingContent(false)}
                             onRetry={onRetry}
@@ -449,7 +456,7 @@ export const CanvasNode = React.memo(function CanvasNode({
                 </>
             ) : null}
 
-            {!referenceSelectionState && showPanel && !isGroup && renderPanel ? <div className={"absolute left-1/2 top-full z-[70] max-w-[calc(100vw-24px)] -translate-x-1/2 pt-4 " + (isCanvasImageNodeType(data.type) || data.type === CanvasNodeType.Video || data.type === CanvasNodeType.Audio ? "w-[622px]" : "w-[500px]")}>{renderPanel(data)}</div> : null}
+            {!referenceSelectionState && showPanel && !isGroup && renderPanel ? <div className={"absolute left-1/2 top-full z-[70] max-w-[calc(100vw-24px)] -translate-x-1/2 pt-4 " + (isCanvasImageNodeType(data.type) || data.type === CanvasNodeType.Video || data.type === CanvasNodeType.Audio ? "w-[622px]" : "w-[500px]")} style={{ transform: "scale(var(--canvas-inverse-scale))", transformOrigin: "top center" }}>{renderPanel(data)}</div> : null}
         </div>
     );
 });
@@ -458,7 +465,13 @@ function NodeContent(props: NodeContentRendererProps) {
     if (props.node.type === CanvasNodeType.Group) return null;
     if ((props.node.type === CanvasNodeType.Config || props.node.type === CanvasNodeType.Director) && props.renderNodeContent) return props.renderNodeContent(props.node);
     if (props.isBatchRoot) return props.node.type === CanvasNodeType.Panorama ? <PanoramaNodeContent {...props} /> : <ImageNodeContent {...props} />;
-    if (props.node.metadata?.status === "loading" && (props.node.type !== CanvasNodeType.Text || !props.node.metadata.content)) return <LoadingContent node={props.node} theme={props.theme} now={props.now} />;
+    if (props.node.metadata?.status === "stopped") return (
+        <div className="flex h-full w-full flex-col items-center justify-center gap-3" style={{ color: props.theme.node.muted }}>
+            <span className="text-sm">已停止</span>
+            <button type="button" className="rounded-full border px-3 py-1.5 text-xs" style={{ color: props.theme.node.text, background: props.theme.toolbar.panel, borderColor: props.theme.toolbar.border }} onMouseDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); props.onRetry?.(props.node); }}>重新生成</button>
+        </div>
+    );
+    if ((props.node.metadata?.status === "loading" || props.node.metadata?.status === "stopping") && (props.node.type !== CanvasNodeType.Text || !props.node.metadata.content)) return <LoadingContent node={props.node} theme={props.theme} now={props.now} />;
     if (props.node.metadata?.status === "error") return <ErrorContent node={props.node} theme={props.theme} onRetry={props.onRetry} />;
 
     const Renderer = nodeContentRenderers[props.node.type];
@@ -487,6 +500,7 @@ function LoadingContent({ node, theme, now }: Pick<NodeContentRendererProps, "no
     const startedAt = typeof node.metadata?.startedAt === "number" ? node.metadata.startedAt : startTimeRef.current;
     const elapsedMs = Math.max(0, currentNow - startedAt);
     const progress = Math.max(0, Math.min(100, Math.round(node.metadata?.progress || 0)));
+    const stopLabel = node.metadata?.status === "stopping" ? node.metadata.errorDetails ? "停止失败，请重试停止" : "正在停止" : "";
 
     if (node.type === CanvasNodeType.Video) {
         return (
@@ -494,7 +508,7 @@ function LoadingContent({ node, theme, now }: Pick<NodeContentRendererProps, "no
                 <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3">
                     <div className="size-10 animate-spin rounded-full border-2" style={{ borderColor: theme.node.stroke, borderTopColor: theme.node.activeStroke }} />
                     <div className="text-sm font-semibold" style={{ color: theme.node.activeStroke }}>
-                        正在创作 {progress}%
+                        {stopLabel || `正在创作 ${progress}%`}
                     </div>
                     <span className="rounded-full px-2 py-1 text-xs" style={{ background: theme.toolbar.panel, color: theme.node.text }}>
                         {formatDuration(elapsedMs)}
@@ -516,7 +530,7 @@ function LoadingContent({ node, theme, now }: Pick<NodeContentRendererProps, "no
     return (
         <div className="flex h-full w-full flex-col items-center justify-center gap-3" style={{ color: theme.node.activeStroke }}>
             <div className="size-10 animate-spin rounded-full border-2" style={{ borderColor: theme.node.stroke, borderTopColor: theme.node.activeStroke }} />
-            <span className="text-[10px] tracking-[0.2em]">{progress > 0 ? `生成中 ${progress}%` : "生成中"}</span>
+            <span className="text-[10px] tracking-[0.2em]">{stopLabel || (progress > 0 ? `生成中 ${progress}%` : "生成中")}</span>
             <span className="rounded-full border px-2 py-1 text-xs tracking-normal" style={{ borderColor: theme.node.stroke, color: theme.node.text }}>
                 {formatDuration(elapsedMs)}
             </span>
@@ -585,7 +599,7 @@ function TextContent({ node, theme, isEditingContent, textareaRef, mentionRefere
                 <div
                     className="thin-scrollbar block h-full w-full overflow-y-auto whitespace-pre-wrap break-words bg-transparent p-4 font-mono"
                     style={textStyle}
-                    onWheel={(event) => event.stopPropagation()}
+                    onWheelCapture={(event) => event.stopPropagation()}
                 >
                     {node.metadata?.content || <span style={{ color: theme.node.placeholder }}>双击编辑文字</span>}
                 </div>
@@ -622,6 +636,7 @@ function ImageNodeContent(props: NodeContentRendererProps) {
             batchRecovering={props.batchRecovering}
             onToggleBatch={props.onToggleBatch}
             onSetBatchPrimary={props.onSetBatchPrimary}
+            onResize={props.onResize}
         />
     );
 }
@@ -664,7 +679,7 @@ function EmptyImageContent({ node, theme, isBatchRoot, batchCount, batchExpanded
     return content;
 }
 
-function VideoNodeContent({ node, theme, isSelected, onViewImage }: NodeContentRendererProps) {
+function VideoNodeContent({ node, theme, isSelected, onViewImage, onResize }: NodeContentRendererProps) {
     const videoRef = useRef<HTMLVideoElement>(null);
     const [isPlaying, setIsPlaying] = useState(false);
     const [mediaDurationMs, setMediaDurationMs] = useState(0);
@@ -697,7 +712,7 @@ function VideoNodeContent({ node, theme, isSelected, onViewImage }: NodeContentR
     };
     return (
         <div className="relative h-full w-full overflow-hidden rounded-[18px] bg-black">
-            <video ref={videoRef} src={node.metadata.content} tabIndex={-1} playsInline className="h-full w-full object-contain outline-none" onLoadStart={() => { setVideoTime(0); setMediaDurationMs(0); }} onLoadedMetadata={(event) => setMediaDurationMs(Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration * 1000 : 0)} onTimeUpdate={(event) => setVideoTime(event.currentTarget.currentTime)} onPlay={() => setIsPlaying(true)} onPause={() => setIsPlaying(false)} onKeyDown={(event) => { if (isSelected && event.code === "Space") { event.preventDefault(); event.stopPropagation(); togglePlayback(); } }} />
+            <video ref={videoRef} src={node.metadata.content} tabIndex={-1} playsInline className="h-full w-full object-contain outline-none" onLoadStart={() => { setVideoTime(0); setMediaDurationMs(0); }} onLoadedMetadata={(event) => { const video = event.currentTarget; setMediaDurationMs(Number.isFinite(video.duration) ? video.duration * 1000 : 0); if (video.currentSrc === video.src) onResize(node.id, video.videoWidth, video.videoHeight, undefined, node); }} onTimeUpdate={(event) => setVideoTime(event.currentTarget.currentTime)} onPlay={() => setIsPlaying(true)} onPause={() => setIsPlaying(false)} onKeyDown={(event) => { if (isSelected && event.code === "Space") { event.preventDefault(); event.stopPropagation(); togglePlayback(); } }} />
             {mediaDurationMs > 0 ? <span className="pointer-events-none absolute left-2 top-2 z-20 flex h-7 items-center justify-center rounded-md px-2 text-[11px] font-medium opacity-70 backdrop-blur" style={controlStyle}>{new Date(mediaDurationMs).toISOString().slice(mediaDurationMs >= 3_600_000 ? 11 : 14, 19)}</span> : null}
             <button type="button" title={isPlaying ? "暂停" : "播放"} aria-label={isPlaying ? "暂停" : "播放"} className={`${controlClassName} left-2`} style={controlStyle} onClick={(event) => { event.stopPropagation(); togglePlayback(); }} onMouseDown={keepVideoFocus} onDoubleClick={(event) => event.stopPropagation()}>
                 {isPlaying ? <Pause className="size-3.5" /> : <Play className="size-3.5" />}
@@ -757,6 +772,7 @@ function ImageContent({
     batchRecovering,
     onToggleBatch,
     onSetBatchPrimary,
+    onResize,
     media,
 }: {
     node: CanvasNodeData;
@@ -767,6 +783,7 @@ function ImageContent({
     batchRecovering: boolean;
     onToggleBatch?: () => void;
     onSetBatchPrimary?: () => void;
+    onResize?: CanvasNodeProps["onResize"];
     media?: ReactNode;
 }) {
     const theme = canvasThemes[useThemeStore((state) => state.theme)];
@@ -780,6 +797,10 @@ function ImageContent({
                         src={node.metadata!.content!}
                         alt={node.title}
                         draggable={false}
+                        onLoad={(event) => {
+                            const image = event.currentTarget;
+                            if (image.currentSrc === image.src) onResize?.(node.id, image.naturalWidth, image.naturalHeight, undefined, node);
+                        }}
                         onDragStart={(event) => event.preventDefault()}
                         className={`pointer-events-none block h-full w-full select-none ${node.metadata?.freeResize ? "object-fill" : "object-contain"}`}
                     />

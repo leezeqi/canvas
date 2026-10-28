@@ -9,6 +9,8 @@ test("built-in protocol options retain both settings panels' labels and order", 
         { label: "Grok2API", value: "grok2api" },
         { label: "Sub2API（Grok 视频）", value: "sub2api" },
         { label: "Canvas OpenAPI（视频）", value: "canvas-openapi-video" },
+        { label: "RunningHub", value: "runninghub" },
+        { label: "ComfyUI", value: "comfyui" },
         { label: "火山方舟", value: "ark" },
         { label: "即梦", value: "jimeng" },
         { label: "MiMo", value: "mimo" },
@@ -22,13 +24,16 @@ test("built-in protocols retain all existing default URLs and API Key links", ()
         grok2api: "",
         sub2api: "",
         "canvas-openapi-video": "",
-        metaso: "https://metaso.cn/api/minimax",
+        minimax: "https://metaso.cn/api/minimax",
+        tokendance: "https://tokendance.space/gateway/v1",
+        runninghub: "https://www.runninghub.cn",
+        comfyui: "",
         ark: "https://ark.cn-beijing.volces.com/api/v3",
         jimeng: "https://visual.volcengineapi.com",
         mimo: "https://api.xiaomimimo.com",
     });
     assert.deepEqual(modelChannelApiKeyUrls, {
-        metaso: "https://metaso.cn/minimax-h3/?s=tt",
+        minimax: "https://metaso.cn/minimax-h3/?s=tt",
         mimo: "https://platform.xiaomimimo.com/?ref=JFZQR2",
     });
 });
@@ -42,7 +47,8 @@ test("Canvas OpenAPI protocol is video-only without a bundled endpoint", () => {
 
 test("public parameter translation eligibility keeps exact protocol matching", () => {
     assert.equal(directAIProviderForProtocol("ark"), "ark");
-    for (const protocol of ["openai", "gemini", "grok2api", "metaso", "jimeng", "mimo", "ARK", " ark ", "", "unknown"]) {
+    assert.equal(directAIProviderForProtocol("tokendance"), "tokendance");
+    for (const protocol of ["openai", "gemini", "grok2api", "minimax", "jimeng", "mimo", "ARK", " ark ", "", "unknown"]) {
         assert.equal(directAIProviderForProtocol(protocol), null, protocol);
     }
 });

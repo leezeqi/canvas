@@ -96,7 +96,7 @@ func serveSub2APIVideoTaskContent(w http.ResponseWriter, r *http.Request, id str
 	if strings.TrimSpace(task.UserChannelID) != "" {
 		channel, err = service.SelectUserLocalModelChannelForModel(task.UserID, task.Model, task.UserChannelID)
 	} else {
-		channel, err = service.SelectModelChannelForModel(task.Model, task.ChannelID)
+		channel, err = service.SelectModelChannelForModel(task.Model, task.ChannelID, false)
 	}
 	if err != nil || !strings.EqualFold(strings.TrimSpace(channel.Protocol), service.ModelChannelProtocolSub2API) {
 		return false

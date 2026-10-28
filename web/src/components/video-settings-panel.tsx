@@ -10,8 +10,8 @@ import { COGVIDEOX3_DURATIONS, isCogVideoX3Model, modelKey, normalizeCogVideoX3D
 import { channelProtocolForConfig, type AiConfig } from "@/stores/use-config-store";
 
 export const videoResolutionOptions = [
-    { value: "720", label: "720p" },
     { value: "480", label: "480p" },
+    { value: "720", label: "720p" },
     { value: "1080", label: "1080p" },
     { value: "2k", label: "2K" },
     { value: "4k", label: "4K" },
@@ -41,7 +41,7 @@ type VideoSettingsPanelProps = {
 
 export function VideoSettingsPanel({ config, modelName, onConfigChange, theme, showTitle = true, className = "w-[320px] space-y-4 rounded-2xl px-1 py-0.5", visualOnly = false }: VideoSettingsPanelProps) {
     const model = modelName || config.model || config.videoModel;
-    if (isSeedanceVideoConfig(config)) {
+    if (isSeedanceVideoConfig(config) || model.toLowerCase().includes("sd2")) {
         return <SeedanceVideoSettingsPanel config={config} modelName={modelName} onConfigChange={onConfigChange} theme={theme} showTitle={showTitle} className={className} visualOnly={visualOnly} />;
     }
 
@@ -50,7 +50,7 @@ export function VideoSettingsPanel({ config, modelName, onConfigChange, theme, s
     const size = normalizeVideoSizeValue(config.size);
     const dimensions = readSizeDimensions(size);
     const resolution = normalizeVideoResolutionValue(config.vquality);
-    const audioGenerationEnabled = supportsVideoAudioGeneration(model, channelProtocolForConfig({ ...config, model, videoModel: model }));
+    const audioGenerationEnabled = supportsVideoAudioGeneration(model);
     const generateAudio = boolConfig(config.videoGenerateAudio, false);
     const updateResolution = (value: string) => {
         const nextResolution = normalizeVideoResolutionValue(value);
@@ -153,13 +153,13 @@ export function VideoSettingsPanel({ config, modelName, onConfigChange, theme, s
 function SeedanceVideoSettingsPanel({ config, modelName, onConfigChange, theme, showTitle, className, visualOnly }: VideoSettingsPanelProps) {
     const model = modelName || config.model || config.videoModel;
     const modelId = modelKey(model);
-    const seedance20 = (modelId.includes("seedance-2-0") || modelId === "bytedance-seedance-2") && !isSeedanceFastOrMiniModel(model);
+    const seedance20 = (modelId.includes("seedance-2-0") || modelId.includes("seedance2-0") || modelId === "bytedance-seedance-2") && !isSeedanceFastOrMiniModel(model);
     const resolution = seedance20 ? normalizeVideoResolutionValue(config.vquality) : normalizeSeedanceResolution(config.vquality, model);
     const ratio = normalizeSeedanceRatio(config.size);
-    const maxSeconds = modelId.includes("seedance-2-5") ? 30 : 15;
+    const maxSeconds = (modelId.includes("seedance-2-5") || modelId.includes("seedance2-5") || modelId.includes("sd2-5")) ? 30 : 15;
     const duration = normalizeSeedanceDuration(config.videoSeconds, maxSeconds);
     const watermark = boolConfig(config.videoWatermark, false);
-    const audioGenerationEnabled = supportsVideoAudioGeneration(model, channelProtocolForConfig({ ...config, model, videoModel: model }));
+    const audioGenerationEnabled = supportsVideoAudioGeneration(model);
     const generateAudio = boolConfig(config.videoGenerateAudio, false);
 
     return (

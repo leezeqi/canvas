@@ -4,15 +4,16 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 
-	"github.com/glebarez/sqlite"
 	mysqldriver "github.com/go-sql-driver/mysql"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/libtnb/sqlite"
 	"github.com/tigerowo/infinite-canvas/config"
 	"github.com/tigerowo/infinite-canvas/model"
 	gormmysql "gorm.io/driver/mysql"
@@ -48,6 +49,17 @@ func DB() (*gorm.DB, error) {
 		if driver == "sqlite" && dsn != ":memory:" {
 			_ = os.MkdirAll(filepath.Dir(dsn), 0755)
 		}
+		if driver == "sqlite" {
+			path, query, _ := strings.Cut(dsn, "?")
+			params, err := url.ParseQuery(query)
+			if err != nil {
+				dbErr = err
+				return
+			}
+			params.Add("_pragma", "journal_mode(WAL)")
+			params.Set("_txlock", "immediate")
+			dsn = path + "?" + params.Encode()
+		}
 		if isPostgresDriver(driver) {
 			dbErr = ensurePostgresDatabase(dsn)
 			if dbErr != nil {
@@ -82,6 +94,8 @@ func DB() (*gorm.DB, error) {
 			&model.CanvasImageTask{},
 			&model.CanvasAudioTask{},
 			&model.CanvasProject{},
+			&model.ComfyBridge{},
+			&model.ComfyBridgeRequest{},
 		)
 	})
 	return db, dbErr

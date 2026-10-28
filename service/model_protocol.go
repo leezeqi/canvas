@@ -15,6 +15,7 @@ const (
 	ModelChannelProtocolCanvasOpenAPIVideo = "canvas-openapi-video"
 	ModelChannelProtocolArk                = "ark"
 	ModelChannelProtocolJimeng             = "jimeng"
+	ModelChannelProtocolTokenDance         = "tokendance"
 )
 
 type modelProtocolAdapter struct {
@@ -30,7 +31,7 @@ type modelProtocolRule struct {
 }
 
 var modelProtocolRegistry map[string]modelProtocolAdapter
-var modelProtocolIDs = []string{ModelChannelProtocolOpenAI, ModelChannelProtocolGemini, ModelChannelProtocolGrok2API, ModelChannelProtocolSub2API, ModelChannelProtocolCanvasOpenAPIVideo, ModelChannelProtocolMiniMax, ModelChannelProtocolMiMo, ModelChannelProtocolArk, ModelChannelProtocolJimeng}
+var modelProtocolIDs = []string{ModelChannelProtocolOpenAI, ModelChannelProtocolGemini, ModelChannelProtocolGrok2API, ModelChannelProtocolSub2API, ModelChannelProtocolCanvasOpenAPIVideo, ModelChannelProtocolMiniMax, ModelChannelProtocolMiMo, ModelChannelProtocolArk, ModelChannelProtocolJimeng, ModelChannelProtocolTokenDance}
 
 func init() {
 	compatible := modelProtocolAdapter{
@@ -41,7 +42,7 @@ func init() {
 		models:    fetchOpenAIAdminChannelModels,
 		testModel: testOpenAIChannelModel,
 	}
-	modelProtocolRegistry = make(map[string]modelProtocolAdapter, 6)
+	modelProtocolRegistry = make(map[string]modelProtocolAdapter, 11)
 	for _, id := range modelProtocolIDs {
 		modelProtocolRegistry[id] = compatible
 	}
@@ -101,6 +102,9 @@ func init() {
 		return "即梦是异步图片/视频模型，请在画布中测试生成。", nil
 	}
 	modelProtocolRegistry[ModelChannelProtocolJimeng] = jimeng
+	tokenDance := compatible
+	tokenDance.buildURL = BuildTokenDanceChannelURL
+	modelProtocolRegistry[ModelChannelProtocolTokenDance] = tokenDance
 	glm := compatible
 	glm.testModel = testGLMTTSChannelModel
 	modelProtocolRegistry["model:glm-tts"] = glm
@@ -153,6 +157,10 @@ func IsArkChannel(channel model.ModelChannel) bool {
 
 func IsJimengChannel(channel model.ModelChannel) bool {
 	return strings.EqualFold(strings.TrimSpace(channel.Protocol), ModelChannelProtocolJimeng)
+}
+
+func IsTokenDanceChannel(channel model.ModelChannel) bool {
+	return strings.EqualFold(strings.TrimSpace(channel.Protocol), ModelChannelProtocolTokenDance)
 }
 
 func matchModelProtocol(rules []modelProtocolRule, channel model.ModelChannel, modelName string) (modelProtocolAdapter, bool) {

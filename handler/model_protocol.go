@@ -26,6 +26,8 @@ type aiProtocolRequest struct {
 	endpoint     string
 	path         string
 	failureLabel string
+	protocol     string
+	formData     bool
 }
 
 type aiProtocolAdapter struct {
@@ -35,6 +37,7 @@ type aiProtocolAdapter struct {
 	prepare       func(aiProtocolRequest) (aiProtocolRequest, bool, error)
 	copyResponse  func(http.ResponseWriter, *http.Response, *http.Request, model.ModelChannel, aiLogContext, func()) bool
 	videoResponse func([]byte, *http.Request, model.ModelChannel, string, bool) ([]byte, bool)
+	videoError    func([]byte, model.ModelChannel, string, bool) string
 	videoContent  func(http.ResponseWriter, *http.Request, string) bool
 	videoID       func(string, string) bool
 	uploads       func(model.ModelChannel, map[string]bool) (map[string]directAIUpload, error)
@@ -44,6 +47,34 @@ type aiProtocolAdapter struct {
 // HTTP 混合钩子留在原 handler 包边界，避免 service 反向依赖 handler。
 // 表只初始化一次；每阶段只执行自身钩子，bool 表示停止匹配，不表示字段是否改变。
 var builtinAIProtocols = []aiProtocolAdapter{
+	{
+		id: service.ModelChannelProtocolTokenDance,
+		path: func(channel model.ModelChannel, _ string, path string) (string, bool) {
+			if !service.IsTokenDanceChannel(channel) {
+				return path, false
+			}
+			if strings.HasPrefix(path, "/videos/") && !strings.HasSuffix(path, "/content") {
+				protocol, taskID, ok := parseTokenDanceTaskID(strings.TrimPrefix(path, "/videos/"))
+				if ok {
+					return tokenDancePollPath(protocol, taskID), true
+				}
+			}
+			return path, true
+		},
+		prepare: prepareTokenDanceRequest,
+		videoResponse: func(payload []byte, request *http.Request, channel model.ModelChannel, modelName string, status bool) ([]byte, bool) {
+			return transformTokenDanceVideoResponse(payload, request, channel, modelName, status)
+		},
+		videoError: func(payload []byte, channel model.ModelChannel, _ string, _ bool) string {
+			if !service.IsTokenDanceChannel(channel) {
+				return ""
+			}
+			return tokenDancePayloadError(payload)
+		},
+		uploads: func(model.ModelChannel, map[string]bool) (map[string]directAIUpload, error) {
+			return nil, nil
+		},
+	},
 	{
 		id:           service.ModelChannelProtocolGemini,
 		videoContent: serveGeminiVideoTaskContent,
@@ -249,6 +280,17 @@ func transformAIProtocolVideoPayload(payload []byte, request *http.Request, chan
 		}
 	}
 	return payload
+}
+
+func readAIProtocolVideoError(payload []byte, channel model.ModelChannel, modelName string, status bool) string {
+	for _, adapter := range builtinAIProtocols {
+		if adapter.videoError != nil {
+			if message := adapter.videoError(payload, channel, modelName, status); message != "" {
+				return message
+			}
+		}
+	}
+	return ""
 }
 
 func isAIProtocolVideoID(modelName string, id string) bool {

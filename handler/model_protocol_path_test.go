@@ -15,8 +15,8 @@ func TestModelProtocolProxyPathContract(t *testing.T) {
 		{"gemini speech before mimo", "gemini", "", "mimo-v2.5-tts", "/audio/speech", "/v1beta/models/mimo-v2.5-tts:generateContent"},
 		{"gemini video before cog", " GEMINI ", "https://api.example", "cogvideox-3", "/videos", "/v1beta/models/cogvideox-3:predictLongRunning"},
 		{"gemini operation", "gemini", "", "veo", "/videos/operations/task", "/v1beta/operations/task"},
-		{"minimax create", "metaso", "https://api.example", "MiniMax-H3", "/videos", "/v2/video_generation"},
-		{"minimax other endpoint unchanged", "metaso", "https://api.example", "MiniMax-H3", "/images/generations", "/images/generations"},
+		{"minimax create", "minimax", "https://api.example", "MiniMax-H3", "/videos", "/v2/video_generation"},
+		{"minimax other endpoint unchanged", "minimax", "https://api.example", "MiniMax-H3", "/images/generations", "/images/generations"},
 		{"cog video", "openai", "", " COGVIDEOX-3 ", "/videos", "/videos/generations"},
 		{"grok2api 1.5 before ark URL", " GROK2API ", "https://api.example/api/plan/v3", " GROK-IMAGINE-VIDEO-1.5 ", "/videos", "/videos/generations"},
 		{"sub2api create", "sub2api", "", "grok-imagine-video", "/videos", "/videos"},
@@ -37,7 +37,7 @@ func TestModelProtocolProxyPathContract(t *testing.T) {
 			}
 		})
 	}
-	for _, protocol := range []string{"", "openai", "grok2api", "canvas-openapi-video", "metaso", "mimo", "future-protocol"} {
+	for _, protocol := range []string{"", "openai", "grok2api", "canvas-openapi-video", "minimax", "mimo", "future-protocol"} {
 		for _, path := range []string{"/chat/completions", "/responses", "/images/generations", "/images/edits", "/audio/speech", "/videos", "/videos/task", "/models"} {
 			if got := resolveAIProxyPath(model.ModelChannel{Protocol: protocol}, "future-model", path); got != path {
 				t.Errorf("passthrough %q %q: got %q", protocol, path, got)
@@ -52,7 +52,7 @@ func TestModelProtocolProxyURLContract(t *testing.T) {
 		{"default version", "openai", " https://api.example/ ", "model", "/models", "https://api.example/v1/models"},
 		{"existing v1", "openai", "https://api.example/v1/", "model", "/videos", "https://api.example/v1/videos"},
 		{"gemini base version", "gemini", "https://api.example/v1beta/", "model", "/v1beta/models/model:generateContent", "https://api.example/v1beta/models/model:generateContent"},
-		{"metaso no v1", "metaso", "https://api.example/", "MiniMax-H3", "/v2/video_generation", "https://api.example/v2/video_generation"},
+		{"minimax no v1", "minimax", "https://api.example/", "MiniMax-H3", "/v2/video_generation", "https://api.example/v2/video_generation"},
 		{"agnes query", "openai", "https://api.example/v1/", "agnes-video-2.5", "/videos/video_a b", "https://api.example/agnesapi?model_name=agnes-video-2.5&video_id=video_a+b"},
 		{"agnes wins protocol URL builder", "gemini", "https://api.example/v1", "agnes-video-2.5", "/videos/video_task", "https://api.example/agnesapi?model_name=agnes-video-2.5&video_id=video_task"},
 	}

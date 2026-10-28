@@ -1,7 +1,7 @@
 import { normalizeSeedanceRatio } from "@/lib/seedance-video";
 import { channelProtocolForConfig, type AiConfig } from "@/stores/use-config-store";
 
-export const MINIMAX_CHANNEL_PROTOCOL = "metaso" as const;
+export const MINIMAX_CHANNEL_PROTOCOL = "minimax" as const;
 export const miniMaxModels = ["MiniMax-H3", "MiniMax-Hailuo-2.3", "MiniMax-Hailuo-2.3-Fast", "MiniMax-Hailuo-02", "MiniMax-Hailuo-01"] as const;
 
 export function isMiniMaxChannel(channel?: { protocol?: string }) {

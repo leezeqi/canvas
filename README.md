@@ -20,7 +20,7 @@
   <img src="https://raw.githubusercontent.com/tigerowo/cdn-tdeh/v0.4/img/infinite-canvas/panorama.webp" alt="全景图生成" />
 </p>
 
-本项目基于 [basketikun(纯前端)](https://github.com/basketikun/infinite-canvas) 为底，合并 [HuFakai](https://github.com/HuFakai/infinite-canvas) 生图增强版基础上，针对视频和视频生成逻辑配置更加完善，完善后端云同步机制，不再依赖纯前端
+本项目基于 [tigerowo/infinite-canvas](https://github.com/tigerowo/infinite-canvas) 二次开发（该项目源自 [basketikun(纯前端)](https://github.com/basketikun/infinite-canvas)，并合并了 [HuFakai](https://github.com/HuFakai/infinite-canvas) 生图增强版），并定期同步上游更新，见 [上游同步](docs/overview/upstream-sync.md)。在此基础上，针对视频和视频生成逻辑配置更加完善，完善后端云同步机制，不再依赖纯前端
 
 > [!CAUTION]
 > 项目目前处于开发阶段，不保证历史数据兼容。各种数据库结构和存储格式都可能直接调整，欢迎关注后续更新
@@ -37,7 +37,6 @@
 - AI 创作：支持 OpenAI 兼容接口的 Images API、Responses API、图生图、参考图编辑、流式接收、Base64 图片返回；Seedance 2.0 可通过火山方舟 Agent Plan 接入
 - 生图工作台：支持侧边/悬浮底部工作台、多任务并发、历史结果合并展示、分类管理、失败详情、参考图缩略图、图片体积展示和“我的素材”复用
 - 创作工作流：支持公开/个人模板、变量表单、AI 创建工作流、单图/多图系列工作流、参考图输入和结果自动进入生图历史
-- 画布助手：围绕选中节点和上游节点对话、生图，并把结果插回画布
 - 提示词库：抓取多个 GitHub 开源项目，按案例整理数百个图片提示词
 - 提示词与素材：提示词库、服务器素材库和“我的素材”可在生图、画布 AI 和工作流中复用
 

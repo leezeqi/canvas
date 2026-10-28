@@ -17,7 +17,7 @@ import (
 func TestModelProtocolRequestGoldens(t *testing.T) {
 	blockProtocolNetwork(t)
 	tests := []struct {
-		name, protocol, model, endpoint, body, want, uploads string
+		name, protocol, model, endpoint, url, body, want, uploads string
 	}{
 		{
 			name: "ark seedance", protocol: "ark", model: "doubao-seedance-2.0",
@@ -41,6 +41,9 @@ func TestModelProtocolRequestGoldens(t *testing.T) {
 			}
 			if plan.Provider != test.protocol || plan.ContentType != "application/json" {
 				t.Fatalf("unexpected direct plan: %#v", plan)
+			}
+			if test.url != "" && plan.URL != test.url {
+				t.Fatalf("got URL %q, want %q", plan.URL, test.url)
 			}
 			if test.want != "" {
 				assertProtocolJSONValue(t, plan.Body, test.want)

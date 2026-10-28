@@ -7,7 +7,7 @@ import { Button } from "antd";
 
 import { VideoSettingsPanel, videoResolutionLabel, videoSecondsLabel, videoSizeLabel } from "@/components/video-settings-panel";
 import { canvasThemes } from "@/lib/canvas-theme";
-import { supportsVideoFrameReferences } from "@/lib/video-model-capabilities";
+import { modelKey, supportsVideoFrameReferences } from "@/lib/video-model-capabilities";
 import { useThemeStore } from "@/stores/use-theme-store";
 import { channelProtocolForConfig, type AiConfig } from "@/stores/use-config-store";
 

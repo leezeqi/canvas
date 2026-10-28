@@ -61,7 +61,7 @@ func TestModelProtocolChannelFlow(t *testing.T) {
 		{name: "Gemini nonstream", protocol: "gemini", modelName: "gemini-text", endpoint: "/chat/completions", body: `{"model":"gemini-text","stream":false,"contents":[]}`, path: "/v1beta/models/gemini-text:generateContent", wantBody: `{"contents":[]}`, payload: `{"candidates":[]}`},
 		{name: "Gemini stream", protocol: "gemini", modelName: "gemini-text", endpoint: "/chat/completions", body: `{"model":"gemini-text","stream":true,"contents":[]}`, path: "/v1beta/models/gemini-text:streamGenerateContent?alt=sse", wantBody: `{"contents":[]}`, payload: `{"candidates":[]}`},
 		{name: "MiMo audio", protocol: "mimo", modelName: "mimo-v2.5-tts", endpoint: "/audio/speech", body: `{"model":"mimo-v2.5-tts","input":" hello "}`, path: "/v1/chat/completions", wantBody: `{"model":"mimo-v2.5-tts","messages":[{"role":"assistant","content":"hello"}],"audio":{"format":"wav","voice":"冰糖"}}`, payload: `{"choices":[{"message":{"audio":{"data":"AQID"}}}]}`, wantResponse: "\x01\x02\x03"},
-		{name: "MiniMax video create", protocol: "metaso", modelName: "MiniMax-H3", endpoint: "/videos", body: `{"model":"MiniMax-H3","prompt":"scene"}`, path: "/v2/video_generation", payload: `{"task_id":"upstream-job","status":"processing"}`, pollPath: "/v2/query/video_generation/upstream-job", pollPayload: `{"task":{"id":"upstream-job","status":"success","content":{"url":"https://media.invalid/video"}}}`},
+		{name: "MiniMax video create", protocol: "minimax", modelName: "MiniMax-H3", endpoint: "/videos", body: `{"model":"MiniMax-H3","prompt":"scene"}`, path: "/v2/video_generation", payload: `{"task_id":"upstream-job","status":"processing"}`, pollPath: "/v2/query/video_generation/upstream-job", pollPayload: `{"task":{"id":"upstream-job","status":"success","content":{"url":"https://media.invalid/video"}}}`},
 		{name: "Grok video create", protocol: "grok2api", modelName: "grok-imagine-video", endpoint: "/videos", body: `{"model":"grok-imagine-video","prompt":"scene"}`, path: "/v1/videos/generations", payload: `{"id":"upstream-job","status":"processing"}`},
 		{name: "Sub2API remote video", protocol: "sub2api", modelName: "grok-imagine-video", endpoint: "/videos", body: `{"model":"grok-imagine-video","prompt":"scene","seconds":"5","duration":5,"resolution":"720p","aspect_ratio":"16:9","ratio":"16:9"}`, path: "/v1/videos", payload: `{"id":"upstream-job","request_id":"upstream-job","status":"processing"}`, pollPath: "/v1/videos/upstream-job", pollPayload: `{"id":"upstream-job","status":"done","video":{"url":"/v1/videos/upstream-job/content","duration":5}}`, wantVideoURL: "https://upstream.invalid/v1/videos/upstream-job/content", contentPath: "/v1/videos/upstream-job/content"},
 		{name: "Sub2API local image to video", local: true, protocol: "sub2api", modelName: "grok-imagine-video-1.5", endpoint: "/videos", body: `{"model":"grok-imagine-video-1.5","prompt":"scene","seconds":"5","duration":5,"resolution":"720p","aspect_ratio":"16:9","ratio":"16:9","images":["https://media.invalid/ref.png"]}`, path: "/v1/videos", payload: `{"id":"upstream-job","status":"processing"}`, pollPath: "/v1/videos/upstream-job", pollPayload: `{"id":"upstream-job","status":"done","video":{"url":"/v1/videos/generations/upstream-job/content","duration":5}}`, wantVideoURL: "https://upstream.invalid/v1/videos/generations/upstream-job/content", contentPath: "/v1/videos/generations/upstream-job/content"},
@@ -69,6 +69,7 @@ func TestModelProtocolChannelFlow(t *testing.T) {
 		{name: "Ark Seedance create", protocol: "ark", modelName: "doubao-seedance-2", endpoint: "/videos", body: `{"model":"doubao-seedance-2","prompt":"scene"}`, path: "/v1/contents/generations/tasks", wantBody: `{"model":"doubao-seedance-2","content":[{"type":"text","text":"scene"}]}`, payload: `{"id":"upstream-job","status":"processing"}`},
 		{name: "Gemini video error response", protocol: "gemini", modelName: "veo", endpoint: "/videos", body: `{"model":"veo","contents":[]}`, path: "/v1beta/models/veo:predictLongRunning", wantBody: `{"contents":[]}`, payload: `{"name":"operations/job"}`, message: `{"message":""}`},
 		{name: "OpenAI chat", protocol: "openai", endpoint: "/chat/completions", body: `{"model":"future-model","messages":[]}`, path: "/v1/chat/completions", payload: `{"choices":[]}`},
+		{name: "OpenAI video", protocol: "openai", endpoint: "/videos", body: `{"model":"future-model","prompt":"scene"}`, path: "/v1/videos", payload: `{"id":"upstream-job","status":"processing"}`},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -167,7 +168,7 @@ func TestModelProtocolChannelFlow(t *testing.T) {
 					if err != nil || !found {
 						t.Fatalf("task unavailable for poll: %v", err)
 					}
-					update, err := pollVideoTaskFromUpstream(task)
+					update, err := pollVideoTaskFromUpstream(context.Background(), task)
 					if err != nil || update.Status != "completed" || update.VideoURL != firstNonEmpty(test.wantVideoURL, "https://media.invalid/video") {
 						t.Fatalf("poll response: %#v, %v", update, err)
 					}

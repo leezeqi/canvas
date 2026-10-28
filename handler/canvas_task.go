@@ -26,6 +26,30 @@ import (
 	"github.com/tigerowo/infinite-canvas/service"
 )
 
+func StopCanvasTask(w http.ResponseWriter, r *http.Request) {
+	user, ok := service.UserFromContext(r.Context())
+	if !ok {
+		Fail(w, "未登录或权限不足")
+		return
+	}
+	var input struct {
+		Kind     string `json:"kind"`
+		ID       string `json:"id"`
+		Workflow bool   `json:"workflow"`
+		Source   string `json:"source"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		Fail(w, "请求参数无效")
+		return
+	}
+	stopped, err := service.StopCanvasTask(user.ID, input.Kind, input.ID, input.Workflow, input.Source)
+	if err != nil {
+		FailError(w, err)
+		return
+	}
+	OK(w, map[string]bool{"stopped": stopped})
+}
+
 func CreateCanvasImageTask(w http.ResponseWriter, r *http.Request) {
 	user, ok := service.UserFromContext(r.Context())
 	if !ok {
@@ -48,7 +72,7 @@ func CreateCanvasImageTask(w http.ResponseWriter, r *http.Request) {
 		Fail(w, "缺少模型渠道")
 		return
 	}
-	channel, resolvedUserChannelID, err := selectAIRequestChannel(user, modelName, channelID, userChannelID)
+	channel, resolvedUserChannelID, err := selectAIRequestChannel(user, modelName, channelID, userChannelID, true)
 	if err != nil {
 		log.Printf("canvas image task select channel failed: model=%s err=%v", modelName, err)
 		failAIChannelSelect(w, err, "AI 接口请求失败")
@@ -154,31 +178,6 @@ func DeleteUserCanvasImageTask(w http.ResponseWriter, r *http.Request, id string
 	OK(w, map[string]any{"deleted": true})
 }
 
-func DeleteUserCanvasTasks(w http.ResponseWriter, r *http.Request) {
-	user, ok := service.UserFromContext(r.Context())
-	if !ok {
-		Fail(w, "未登录或权限不足")
-		return
-	}
-
-	var request struct {
-		SourceID string   `json:"source_id"`
-		NodeIDs  []string `json:"node_ids"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&request); err != nil || strings.TrimSpace(request.SourceID) == "" {
-		Fail(w, "画布任务参数无效")
-		return
-	}
-
-	if err := service.DeleteUserCanvasTasks(user.ID, request.SourceID, request.NodeIDs); err != nil {
-		log.Printf("delete canvas tasks failed: user=%s source=%s err=%v", user.ID, request.SourceID, err)
-		Fail(w, "AI 接口请求失败")
-		return
-	}
-
-	OK(w, map[string]any{"deleted": true})
-}
-
 func CreateCanvasAudioTask(w http.ResponseWriter, r *http.Request) {
 	user, ok := service.UserFromContext(r.Context())
 	if !ok {
@@ -201,7 +200,7 @@ func CreateCanvasAudioTask(w http.ResponseWriter, r *http.Request) {
 		Fail(w, "缺少模型渠道")
 		return
 	}
-	channel, resolvedUserChannelID, err := selectAIRequestChannel(user, modelName, channelID, userChannelID)
+	channel, resolvedUserChannelID, err := selectAIRequestChannel(user, modelName, channelID, userChannelID, true)
 	if err != nil {
 		log.Printf("canvas audio task select channel failed: model=%s err=%v", modelName, err)
 		failAIChannelSelect(w, err, "AI 接口请求失败")
@@ -251,13 +250,26 @@ func GetCanvasAudioTask(w http.ResponseWriter, r *http.Request, id string) {
 }
 
 func runCanvasImageTask(task model.CanvasImageTask, user model.AuthUser, body []byte, contentType string, channelID string, userChannelID string) {
+	ctx, cleanup, err := service.CanvasTaskContext("image", task.UserID, task.ID)
+	if err != nil {
+		return
+	}
+	defer cleanup()
 	current := taskTime()
 	task.Status = "processing"
 	task.Progress = 10
 	task.StartedAt = current
 	task, _ = service.SaveCanvasImageTask(task)
 
-	payload, status, responseContentType, err := executeCanvasAIRequest(user, task.Endpoint, body, contentType, channelID, userChannelID)
+	payload, status, responseContentType, err := executeCanvasAIRequest(ctx, user, task.Endpoint, body, contentType, channelID, userChannelID, func(progress int) {
+		if progress > task.Progress {
+			task.Progress = min(progress, 99)
+			task, _ = service.SaveCanvasImageTask(task)
+		}
+	})
+	if ctx.Err() != nil {
+		return
+	}
 	if err != nil {
 		saveFailedCanvasImageTask(task, err.Error(), err.Error())
 		return
@@ -271,7 +283,8 @@ func runCanvasImageTask(task model.CanvasImageTask, user model.AuthUser, body []
 		saveFailedCanvasImageTask(task, message, string(payload))
 		return
 	}
-	imageURLs, mimeType, bytes, err := imageURLsFromAIResponse(payload, responseContentType, false, task.Endpoint == "/chat/completions")
+	translationInput, _ := service.ReadParameterTranslationInput(body)
+	imageURLs, mimeType, bytes, err := imageURLsFromAIResponse(payload, responseContentType, translationInput != nil, task.Endpoint == "/chat/completions")
 	if err != nil {
 		saveFailedCanvasImageTask(task, err.Error(), string(payload))
 		return
@@ -292,13 +305,26 @@ func runCanvasImageTask(task model.CanvasImageTask, user model.AuthUser, body []
 }
 
 func runCanvasAudioTask(task model.CanvasAudioTask, user model.AuthUser, body []byte, contentType string, channelID string, userChannelID string) {
+	ctx, cleanup, err := service.CanvasTaskContext("audio", task.UserID, task.ID)
+	if err != nil {
+		return
+	}
+	defer cleanup()
 	current := taskTime()
 	task.Status = "processing"
 	task.Progress = 10
 	task.StartedAt = current
 	task, _ = service.SaveCanvasAudioTask(task)
 
-	payload, status, responseContentType, err := executeCanvasAIRequest(user, task.Endpoint, body, contentType, channelID, userChannelID)
+	payload, status, responseContentType, err := executeCanvasAIRequest(ctx, user, task.Endpoint, body, contentType, channelID, userChannelID, func(progress int) {
+		if progress > task.Progress {
+			task.Progress = min(progress, 99)
+			task, _ = service.SaveCanvasAudioTask(task)
+		}
+	})
+	if ctx.Err() != nil {
+		return
+	}
 	if err != nil {
 		saveFailedCanvasAudioTask(task, err.Error(), err.Error())
 		return
@@ -317,6 +343,18 @@ func runCanvasAudioTask(task model.CanvasAudioTask, user model.AuthUser, body []
 		mimeType = strings.TrimSpace(http.DetectContentType(payload))
 	}
 	if strings.Contains(mimeType, "json") {
+		var result struct {
+			Provider string `json:"provider"`
+			AudioURL string `json:"audio_url"`
+			MimeType string `json:"mime_type"`
+		}
+		if json.Unmarshal(payload, &result) == nil && result.AudioURL != "" && result.Provider == "parameter-translation" {
+			task.Status, task.Progress, task.CompletedAt = "completed", 100, taskTime()
+			task.AudioURL, task.MimeType, task.ResponseBody = result.AudioURL, result.MimeType, string(payload)
+			task.Error, task.ErrorDetail = "", ""
+			_, _ = service.SaveCanvasAudioTask(task)
+			return
+		}
 		saveFailedCanvasAudioTask(task, "音频接口没有返回音频文件", string(payload))
 		return
 	}
@@ -336,9 +374,13 @@ func runCanvasAudioTask(task model.CanvasAudioTask, user model.AuthUser, body []
 	_, _ = service.SaveCanvasAudioTask(task)
 }
 
-func executeCanvasAIRequest(user model.AuthUser, endpoint string, body []byte, contentType string, channelID string, userChannelID string) ([]byte, int, string, error) {
+func executeCanvasAIRequest(ctx context.Context, user model.AuthUser, endpoint string, body []byte, contentType string, channelID string, userChannelID string, onProgress ...func(int)) ([]byte, int, string, error) {
 	request := httptest.NewRequest(http.MethodPost, "http://canvas.local/api/v1"+endpoint, bytes.NewReader(body))
-	request = request.WithContext(service.WithUser(context.Background(), user))
+	request = request.WithContext(service.WithUser(ctx, user))
+	request.Header.Set("X-Canvas-Node-Request", "true")
+	if len(onProgress) > 0 {
+		request = request.WithContext(context.WithValue(request.Context(), parameterTranslationProgressKey{}, onProgress[0]))
+	}
 	if contentType != "" {
 		request.Header.Set("Content-Type", contentType)
 	}

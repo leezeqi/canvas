@@ -1,9 +1,11 @@
 import { Home, LogIn } from "lucide-react";
 import Link from "next/link";
+import { AnnouncementBanner } from "@/components/layout/announcement-banner";
 
 export default function NotFound() {
     return (
         <div className="aurora-app flex h-dvh flex-col overflow-hidden bg-background text-foreground">
+            <AnnouncementBanner />
             <main className="flex h-full min-h-0 items-center justify-center overflow-y-auto px-6 py-10 text-foreground">
                 <section className="aurora-glass w-full max-w-md rounded-sm border p-8 text-center">
                     <div className="mx-auto mb-6 flex size-16 items-center justify-center rounded-sm bg-foreground/10 text-2xl font-medium tracking-wide text-foreground">404</div>
