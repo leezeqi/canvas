@@ -1427,7 +1427,7 @@ async function createGeminiImageBody(config: AiConfig, prompt: string, reference
         model: config.model,
         ...(systemPrompt ? { systemInstruction: { parts: [{ text: systemPrompt }] } } : {}),
         contents: [{ role: "user", parts }],
-        generationConfig: { responseModalities: ["TEXT", "IMAGE"], responseFormat: { image } },
+        generationConfig: { responseModalities: ["TEXT", "IMAGE"], imageConfig: image },
     };
 }
 
