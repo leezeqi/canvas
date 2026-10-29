@@ -71,7 +71,7 @@ export default function UserLayout({ children }: { children: ReactNode }) {
                                     href={tab.href}
                                     className={cn(
                                         "rounded-full px-4 py-1.5 text-xs font-medium transition",
-                                        pathname === tab.href || pathname.startsWith(`${tab.href}/`) ? "bg-foreground text-background shadow-[0_4px_12px_-4px_rgba(0,0,0,0.3)]" : "text-foreground/60 hover:text-foreground",
+                                        pathname === tab.href || pathname.startsWith(`${tab.href}/`) ? "!bg-foreground !text-background shadow-[0_4px_12px_-4px_rgba(0,0,0,0.3)]" : "!text-foreground/60 hover:!text-foreground",
                                     )}
                                 >
                                     {tab.label}

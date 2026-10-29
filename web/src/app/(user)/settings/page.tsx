@@ -44,7 +44,7 @@ export default function SettingsPage() {
                                     <button
                                         key={value}
                                         type="button"
-                                        className={cn("flex items-center gap-4 rounded-2xl border p-5 text-left transition", theme === value ? "border-foreground bg-foreground text-background" : "border-border/60 hover:border-foreground/30")}
+                                        className={cn("flex items-center gap-4 rounded-2xl border p-5 text-left transition", theme === value ? "border-foreground !bg-foreground !text-background" : "border-border/60 !text-foreground hover:border-foreground/30")}
                                         onClick={() => setTheme(value)}
                                     >
                                         <Icon className="size-5 shrink-0" />
@@ -73,7 +73,7 @@ export default function SettingsPage() {
                     <button
                         key={item.key}
                         type="button"
-                        className={cn("shrink-0 rounded-full px-4 py-2 text-xs font-medium transition", item.key === tab ? "bg-foreground text-background shadow-[0_4px_12px_-4px_rgba(0,0,0,0.3)]" : "text-foreground/60 hover:text-foreground")}
+                        className={cn("shrink-0 rounded-full px-4 py-2 text-xs font-medium transition", item.key === tab ? "!bg-foreground !text-background shadow-[0_4px_12px_-4px_rgba(0,0,0,0.3)]" : "!text-foreground/60 hover:!text-foreground")}
                         onClick={() => setTab(item.key)}
                     >
                         {item.label}

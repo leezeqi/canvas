@@ -13,8 +13,9 @@ import { useAgentChatStore } from "@/stores/use-agent-chat-store";
 import { useUserStore } from "@/stores/use-user-store";
 
 const itemClass = "flex h-10 w-full items-center gap-3 rounded-xl px-3 text-sm transition";
-const idleItemClass = "bg-card/70 text-foreground/65 shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:bg-card hover:text-foreground";
-const activeItemClass = "bg-foreground font-medium text-background shadow-[0_6px_16px_-6px_rgba(0,0,0,0.35)]";
+// antd 和全局重置会以非 layer 样式覆盖 a/button 的颜色和背景，这里用 ! 保证选中态生效。
+const idleItemClass = "!bg-card/70 !text-foreground/65 shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:!bg-card hover:!text-foreground";
+const activeItemClass = "!bg-foreground font-medium !text-background shadow-[0_6px_16px_-6px_rgba(0,0,0,0.35)]";
 
 export function AppSideNav() {
     const pathname = usePathname();
@@ -48,7 +49,7 @@ export function AppSideNav() {
         return (
             <div className="flex h-full min-h-0 flex-col gap-4 p-3">
                 <div className={cn("flex items-center gap-2 px-1 pt-1", compact ? "flex-col" : "justify-between")}>
-                    <Link href="/" className="flex min-w-0 items-center gap-2 text-foreground">
+                    <Link href="/" className="flex min-w-0 items-center gap-2 !text-foreground">
                         <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-foreground text-background">
                             <svg className="size-4" viewBox="0 0 32 32" fill="none">
                                 <path d="M10.5 11C7.46243 11 5 13.2386 5 16C5 18.7614 7.46243 21 10.5 21C13.0116 21 15.148 19.3404 15.8601 17.0278C15.922 16.8267 16.078 16.8267 16.1399 17.0278C16.852 19.3404 18.9884 21 21.5 21C24.5376 21 27 18.7614 27 16C27 13.2386 24.5376 11 21.5 11C18.9884 11 16.852 12.6596 16.1399 14.9722C16.078 15.1733 15.922 15.1733 15.8601 14.9722C15.148 12.6596 13.0116 11 10.5 11Z" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
@@ -56,7 +57,7 @@ export function AppSideNav() {
                         </span>
                         {!compact ? <span className="truncate text-base font-semibold tracking-tight">无限画布</span> : null}
                     </Link>
-                    <button type="button" className="hidden size-8 items-center justify-center rounded-lg text-foreground/50 transition hover:bg-foreground/5 hover:text-foreground md:inline-flex" onClick={() => setCollapsed(!collapsed)} aria-label={collapsed ? "展开侧边栏" : "收起侧边栏"}>
+                    <button type="button" className="hidden size-8 items-center justify-center rounded-lg !text-foreground/50 transition hover:bg-foreground/5 hover:!text-foreground md:inline-flex" onClick={() => setCollapsed(!collapsed)} aria-label={collapsed ? "展开侧边栏" : "收起侧边栏"}>
                         {collapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
                     </button>
                 </div>
@@ -117,7 +118,7 @@ export function AppSideNav() {
                 {renderContent(collapsed)}
             </aside>
             <div className="relative z-10 flex h-12 shrink-0 items-center gap-2 border-b border-border/40 px-3 md:hidden">
-                <button type="button" className="inline-flex size-8 items-center justify-center rounded-lg text-foreground/70 transition hover:bg-foreground/5" onClick={() => setMobileOpen(true)} aria-label="打开导航菜单">
+                <button type="button" className="inline-flex size-8 items-center justify-center rounded-lg !text-foreground/70 transition hover:bg-foreground/5" onClick={() => setMobileOpen(true)} aria-label="打开导航菜单">
                     <Menu className="size-4" />
                 </button>
                 <span className="text-sm font-semibold">{activeTool?.label || "无限画布"}</span>

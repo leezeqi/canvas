@@ -37,6 +37,9 @@ import {
 
 const SUGGESTIONS = ["生成一张赛博朋克风格的城市夜景海报", "帮我写一段新品发布的宣传文案", "把上传的图片改成水彩插画风格", "为 30 秒短视频写一个分镜脚本"];
 const MEDIA_LABEL = { image: "图片", video: "视频", audio: "语音" } as const;
+// antd 和全局重置会以非 layer 样式覆盖 button 的颜色，这里用 ! 保证选中态生效。
+const chipClass = (active: boolean) =>
+    cn("inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs transition", active ? "!bg-foreground !text-background" : "!bg-card/70 !text-foreground/60 shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:!bg-card hover:!text-foreground");
 
 function toPendingAgentAsset(payload: InsertAssetPayload, label: string): PendingAgentAsset {
     const nodeId = nanoid();
@@ -289,8 +292,8 @@ export default function AgentPage() {
 
     const composer = (
         <div className="w-full">
-            <div className="mb-2 flex flex-wrap items-center justify-between gap-2 px-2">
-                <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+            <div className="mb-2.5 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-2">
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
                     <Tooltip title={mode === "chat" ? "生成结果直接显示在对话里" : "新建画布，由 Agent 编排节点"}>
                         <Segmented size="small" value={mode} onChange={(value) => setMode(value as "chat" | "canvas")} options={[{ label: "对话", value: "chat" }, { label: "画布", value: "canvas" }]} />
                     </Tooltip>
@@ -300,28 +303,15 @@ export default function AgentPage() {
                               { label: "视频理解", icon: Clapperboard, active: videoUnderstanding, toggle: () => setVideoUnderstanding(!videoUnderstanding), tip: "把本次附带的视频直接交给模型理解画面（Gemini、部分豆包模型还能理解声音），需要模型支持视频输入（如 Gemini、通义千问 VL、豆包），单个视频 2 秒以上、不超过 7MB" },
                           ].map(({ label, icon: Icon, active, toggle, tip }) => (
                               <Tooltip key={label} title={tip}>
-                                  <button type="button" aria-pressed={active} className={cn("inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs transition", active ? "bg-foreground text-background" : "bg-card/70 text-foreground/60 shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:bg-card hover:text-foreground")} onClick={toggle}>
+                                  <button type="button" aria-pressed={active} className={chipClass(active)} onClick={toggle}>
                                       <Icon className="size-3.5" />
                                       {label}
                                   </button>
                               </Tooltip>
                           ))
                         : null}
-                    {quickSkills.map((skill) => {
-                        const active = selectedSkills.some((selected) => selected.id === skill.id && selected.source === skill.source);
-                        return (
-                            <button
-                                key={`${skill.source}:${skill.id}`}
-                                type="button"
-                                className={cn("max-w-[140px] truncate rounded-full px-3 py-1 text-xs transition", active ? "bg-foreground text-background" : "bg-card/70 text-foreground/60 shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:bg-card hover:text-foreground")}
-                                onClick={() => (active ? setSelectedSkills((current) => current.filter((selected) => selected.id !== skill.id || selected.source !== skill.source)) : selectSkill({ id: skill.id, name: skill.name, source: skill.source }))}
-                            >
-                                {skill.name}
-                            </button>
-                        );
-                    })}
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex shrink-0 items-center gap-3">
                     {mode === "chat" && contextTokens ? (
                         <Tooltip title="估算的上下文用量，接近上限时会自动压缩较早的对话">
                             <span className="text-[11px] tabular-nums text-foreground/45">
@@ -361,6 +351,25 @@ export default function AgentPage() {
                 onOpenAssets={() => setAssetPickerOpen(true)}
                 onPasteImage={(file) => void uploadFile(file)}
             />
+            {quickSkills.length ? (
+                <div className="mt-3 flex flex-wrap items-center gap-2 px-2">
+                    <span className="text-[11px] text-foreground/40">常用 Skill</span>
+                    {quickSkills.map((skill) => {
+                        const active = selectedSkills.some((selected) => selected.id === skill.id && selected.source === skill.source);
+                        return (
+                            <button
+                                key={`${skill.source}:${skill.id}`}
+                                type="button"
+                                title={skill.name}
+                                className={cn(chipClass(active), "max-w-[200px]")}
+                                onClick={() => (active ? setSelectedSkills((current) => current.filter((selected) => selected.id !== skill.id || selected.source !== skill.source)) : selectSkill({ id: skill.id, name: skill.name, source: skill.source }))}
+                            >
+                                <span className="truncate">{skill.name}</span>
+                            </button>
+                        );
+                    })}
+                </div>
+            ) : null}
             <p className="mt-2 text-center text-[11px] text-foreground/35">Agent 可能会犯错，请核查重要信息和生成内容 · Enter 发送，Shift + Enter 换行</p>
         </div>
     );
@@ -395,7 +404,7 @@ export default function AgentPage() {
                                                     { label: "没帮助", icon: ThumbsDown, active: item.feedback === "down", onClick: () => setFeedback(item.id, "down") },
                                                 ].map(({ label, icon: Icon, active, onClick }) => (
                                                     <Tooltip key={label} title={label}>
-                                                        <button type="button" className={cn("inline-flex size-7 items-center justify-center rounded-lg transition hover:bg-foreground/5 hover:text-foreground", active && "text-foreground")} onClick={onClick} aria-label={label}>
+                                                        <button type="button" className={cn("inline-flex size-7 items-center justify-center rounded-lg transition hover:bg-foreground/5 hover:!text-foreground", active && "!text-foreground")} onClick={onClick} aria-label={label}>
                                                             <Icon className={cn("size-3.5", active && "fill-current")} />
                                                         </button>
                                                     </Tooltip>
@@ -416,7 +425,7 @@ export default function AgentPage() {
                     <div className="mt-10 w-full max-w-[820px]">{composer}</div>
                     <div className="mt-6 flex max-w-[820px] flex-wrap justify-center gap-2">
                         {SUGGESTIONS.map((suggestion) => (
-                            <button key={suggestion} type="button" className="rounded-full border border-border/60 bg-card/70 px-4 py-2 text-xs text-foreground/65 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition hover:bg-card hover:text-foreground" onClick={() => setPrompt(suggestion)}>
+                            <button key={suggestion} type="button" className="rounded-full border border-border/60 !bg-card/70 px-4 py-2 text-xs !text-foreground/65 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition hover:!bg-card hover:!text-foreground" onClick={() => setPrompt(suggestion)}>
                                 {suggestion}
                             </button>
                         ))}
