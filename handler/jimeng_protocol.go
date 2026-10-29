@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"strings"
 
@@ -51,6 +52,9 @@ func normalizeJimengImageBody(body []byte, modelName string) ([]byte, error) {
 	result := map[string]any{"req_key": firstNonEmpty(modelName, toStringSafe(input["model"]), "jimeng_high_aes_general_v21_L"), "prompt": strings.TrimSpace(toStringSafe(input["prompt"]))}
 	for _, key := range []string{"seed", "width", "height", "use_pre_llm", "use_sr", "return_url", "logo_info", "image_urls", "binary_data_base64"} {
 		if value, ok := input[key]; ok { result[key] = value }
+	}
+	if _, ok := result["width"]; !ok {
+		if width, height := jimengImageDimensions(toStringSafe(input["size"])); width > 0 { result["width"], result["height"] = width, height }
 	}
 	if n, ok := input["n"]; ok && len(readAnySlice(n)) > 0 { result["n"] = n }
 	return json.Marshal(result)
@@ -110,6 +114,19 @@ func jimengAspectRatio(size string) string {
 		if d := ratio - item.value; d < 0 { d = -d; if d < diff { diff, best = d, item.name } } else if d < diff { diff, best = d, item.name }
 	}
 	return best
+}
+
+// jimengImageDimensions 按即梦推荐尺寸把 size 换算成长边 512、短边不小于 256 的宽高，保持比例。
+func jimengImageDimensions(size string) (int, int) {
+	parts := strings.Split(strings.ToLower(strings.TrimSpace(size)), "x")
+	if len(parts) != 2 { return 0, 0 }
+	width, height := 0.0, 0.0
+	_, _ = fmt.Sscanf(parts[0], "%f", &width)
+	_, _ = fmt.Sscanf(parts[1], "%f", &height)
+	if width <= 0 || height <= 0 { return 0, 0 }
+	scale := math.Max(512/math.Max(width, height), 256/math.Min(width, height))
+	clamp := func(value float64) int { return int(math.Min(768, math.Max(256, math.Round(value*scale)))) }
+	return clamp(width), clamp(height)
 }
 
 func jimengFrames(seconds string) int { if strings.TrimSpace(seconds) == "10" { return 241 }; return 121 }

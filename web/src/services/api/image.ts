@@ -156,7 +156,7 @@ function resolveSize(quality: string, ratio: string): string | undefined {
     return `${(w / a) * unit}x${(h / a) * unit}`;
 }
 
-function resolveRequestSize(quality: string | undefined, size: string) {
+export function resolveRequestSize(quality: string | undefined, size: string) {
     const value = size.trim();
     if (!value || value === "auto") return undefined;
     if (/^\d+x\d+$/.test(value)) return value;
